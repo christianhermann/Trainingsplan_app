@@ -1,52 +1,51 @@
 import '../models/rep_target_point.dart';
 
-/// Looks up rep targets for normal sets and last sets based on lift and intensity.
-/// The workbook defines separate tables for normal-set and last-set targets,
-/// indexed by intensity level (e.g., 0.70, 0.725, 0.75, etc.).
 abstract class RepTargetLookupService {
-  /// Returns the normal-set rep target for a lift at a given intensity.
-  /// 
-  /// Parameters:
-  ///   - liftId: The ID of the lift
-  ///   - intensity: The intensity as a decimal (e.g., 0.75)
-  ///   - repTargetPoints: The complete set of RepTargetPoint records
-  /// 
-  /// Returns the target rep count for normal sets.
-  /// Throws an exception if the lift/intensity combination is not found.
   int getNormalSetTarget(
     String liftId,
     double intensity,
     List<RepTargetPoint> repTargetPoints,
   );
 
-  /// Returns the last-set rep target for a lift at a given intensity.
-  /// Last-set targets are typically higher than normal-set targets.
-  /// 
-  /// Parameters:
-  ///   - liftId: The ID of the lift
-  ///   - intensity: The intensity as a decimal (e.g., 0.75)
-  ///   - repTargetPoints: The complete set of RepTargetPoint records
-  /// 
-  /// Returns the target rep count for the last set (typically higher).
-  /// Throws an exception if the lift/intensity combination is not found.
   int getLastSetTarget(
     String liftId,
     double intensity,
     List<RepTargetPoint> repTargetPoints,
   );
 
-  /// Finds the closest intensity match if an exact intensity is not available.
-  /// Useful for handling rounding or slightly different intensity values.
-  RepTargetPoint? getClosestRepTarget(
-    String liftId,
-    double intensity,
-    List<RepTargetPoint> repTargetPoints,
-  );
+  /// Direct week-based lookups using built-in table.
+  int getNormalSetReps(int weekNumber);
+  int getLastSetReps(int weekNumber);
 }
 
-/// Default implementation of RepTargetLookupService.
 class DefaultRepTargetLookupService implements RepTargetLookupService {
-  static const double _intensityTolerance = 0.001; // Allow tiny rounding differences
+  // Normal set rep targets per week (1–21)
+  static const _normalReps = [
+    10, 10, 8, 8, 6, 6, 6,
+    5, 5, 5, 4, 4, 4,
+    3, 3, 3, 3, 3, 3,
+    2, 1,
+  ];
+
+  // Last set rep targets per week (1–21)
+  static const _lastSetReps = [
+    12, 12, 10, 10, 8, 8, 8,
+    7, 7, 7, 6, 6, 6,
+    5, 5, 5, 4, 4, 4,
+    3, 2,
+  ];
+
+  @override
+  int getNormalSetReps(int weekNumber) {
+    final idx = (weekNumber - 1).clamp(0, _normalReps.length - 1);
+    return _normalReps[idx];
+  }
+
+  @override
+  int getLastSetReps(int weekNumber) {
+    final idx = (weekNumber - 1).clamp(0, _lastSetReps.length - 1);
+    return _lastSetReps[idx];
+  }
 
   @override
   int getNormalSetTarget(
@@ -54,8 +53,18 @@ class DefaultRepTargetLookupService implements RepTargetLookupService {
     double intensity,
     List<RepTargetPoint> repTargetPoints,
   ) {
-    final point = _findRepTargetPoint(liftId, intensity, repTargetPoints);
-    return point.normalSetTarget;
+    final match = repTargetPoints.where(
+      (p) => p.liftId == liftId && (p.intensity - intensity).abs() < 0.01,
+    );
+    if (match.isNotEmpty) return match.first.normalSetReps;
+    // Fallback: estimate from intensity
+    if (intensity >= 0.95) return 2;
+    if (intensity >= 0.90) return 3;
+    if (intensity >= 0.85) return 4;
+    if (intensity >= 0.80) return 5;
+    if (intensity >= 0.75) return 6;
+    if (intensity >= 0.70) return 8;
+    return 10;
   }
 
   @override
@@ -64,52 +73,16 @@ class DefaultRepTargetLookupService implements RepTargetLookupService {
     double intensity,
     List<RepTargetPoint> repTargetPoints,
   ) {
-    final point = _findRepTargetPoint(liftId, intensity, repTargetPoints);
-    return point.lastSetTarget;
-  }
-
-  @override
-  RepTargetPoint? getClosestRepTarget(
-    String liftId,
-    double intensity,
-    List<RepTargetPoint> repTargetPoints,
-  ) {
-    final relevantPoints =
-        repTargetPoints.where((p) => p.liftId == liftId).toList();
-
-    if (relevantPoints.isEmpty) return null;
-
-    // Sort by distance to the target intensity
-    relevantPoints.sort(
-      (a, b) => (a.intensity - intensity).abs()
-          .compareTo((b.intensity - intensity).abs()),
+    final match = repTargetPoints.where(
+      (p) => p.liftId == liftId && (p.intensity - intensity).abs() < 0.01,
     );
-
-    return relevantPoints.first;
-  }
-
-  RepTargetPoint _findRepTargetPoint(
-    String liftId,
-    double intensity,
-    List<RepTargetPoint> repTargetPoints,
-  ) {
-    try {
-      // First try exact match (with small tolerance for floating point)
-      return repTargetPoints.firstWhere(
-        (p) =>
-            p.liftId == liftId &&
-            (p.intensity - intensity).abs() < _intensityTolerance,
-      );
-    } catch (e) {
-      // Fall back to closest match
-      final closest = getClosestRepTarget(liftId, intensity, repTargetPoints);
-      if (closest != null) {
-        return closest;
-      }
-      throw Exception(
-        'Rep target not found for lift: $liftId, intensity: $intensity',
-      );
-    }
+    if (match.isNotEmpty) return match.first.lastSetReps;
+    if (intensity >= 0.95) return 3;
+    if (intensity >= 0.90) return 4;
+    if (intensity >= 0.85) return 5;
+    if (intensity >= 0.80) return 6;
+    if (intensity >= 0.75) return 8;
+    if (intensity >= 0.70) return 10;
+    return 12;
   }
 }
-
