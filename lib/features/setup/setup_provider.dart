@@ -7,14 +7,10 @@ import '../../data/repositories/program_repository.dart';
 import '../../data/repositories/training_max_repository.dart';
 import '../../data/repositories/workout_repository.dart';
 import '../../domain/models/enums.dart';
-import '../../domain/models/training_max.dart' as domain;
 import '../../domain/services/intensity_lookup_service.dart';
 import '../../domain/services/rep_target_lookup_service.dart';
-import '../../domain/services/rounding_service.dart';
-import '../../domain/services/workout_generation_service.dart';
 
-// ── Lift name map ────────────────────────────────────────────────────────────
-// Maps UI lift keys (used in setup screen) to DB seeded lift names.
+// Maps UI lift keys -> DB seeded lift names
 const _liftNameMap = {
   'squat': 'squat',
   'bench_press': 'bankdruecken',
@@ -22,8 +18,8 @@ const _liftNameMap = {
   'overhead_press': 'schulterdruecken',
 };
 
-// ── Frequency lookup data (minimal inline tables) ─────────────────────────────
-// Maps ProgramFrequency enum to number of training days per week.
+const _mainLiftKeys = ['squat', 'bench_press', 'deadlift', 'overhead_press'];
+
 const _frequencyDays = {
   ProgramFrequency.two: 2,
   ProgramFrequency.three: 3,
@@ -32,7 +28,7 @@ const _frequencyDays = {
   ProgramFrequency.six: 6,
 };
 
-// ── Setup state ─────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────
 
 class SetupState {
   const SetupState({
@@ -56,27 +52,24 @@ class SetupState {
     bool? isSaving,
     String? errorMessage,
     bool clearError = false,
-  }) {
-    return SetupState(
-      selectedFrequency: selectedFrequency ?? this.selectedFrequency,
-      trainingMaxes: trainingMaxes ?? this.trainingMaxes,
-      isValid: isValid ?? this.isValid,
-      isSaving: isSaving ?? this.isSaving,
-      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-    );
-  }
+  }) =>
+      SetupState(
+        selectedFrequency: selectedFrequency ?? this.selectedFrequency,
+        trainingMaxes: trainingMaxes ?? this.trainingMaxes,
+        isValid: isValid ?? this.isValid,
+        isSaving: isSaving ?? this.isSaving,
+        errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      );
 }
 
-// ── Notifier ─────────────────────────────────────────────────────────────────
+// ── Notifier ────────────────────────────────────────────────────────────────
 
 class SetupNotifier extends StateNotifier<SetupState> {
   SetupNotifier(this._ref) : super(const SetupState());
-
   final Ref _ref;
 
   void selectFrequency(ProgramFrequency frequency) {
-    state = state.copyWith(
-        selectedFrequency: frequency, clearError: true);
+    state = state.copyWith(selectedFrequency: frequency, clearError: true);
     _validate();
   }
 
@@ -97,23 +90,21 @@ class SetupNotifier extends StateNotifier<SetupState> {
   }
 
   void _validate() {
-    const mainLifts = ['squat', 'bench_press', 'deadlift', 'overhead_press'];
-    final allMaxesPresent =
-        mainLifts.every((l) => (state.trainingMaxes[l] ?? 0) > 0);
-    final isValid = state.selectedFrequency != null && allMaxesPresent;
+    final allPresent =
+        _mainLiftKeys.every((l) => (state.trainingMaxes[l] ?? 0) > 0);
+    final isValid = state.selectedFrequency != null && allPresent;
+
     String? error;
     if (state.selectedFrequency == null) {
       error = 'Please select a training frequency';
-    } else if (!allMaxesPresent) {
-      final missing = mainLifts
-          .where((l) => (state.trainingMaxes[l] ?? 0) <= 0)
-          .toList();
+    } else if (!allPresent) {
+      final missing =
+          _mainLiftKeys.where((l) => (state.trainingMaxes[l] ?? 0) <= 0);
       error = 'Missing maxes for: ${missing.join(', ')}';
     }
     state = state.copyWith(isValid: isValid, errorMessage: error);
   }
 
-  /// Save setup: persist training maxes + generate full 21-week program.
   Future<void> saveAndGenerate() async {
     if (!state.isValid) return;
     state = state.copyWith(isSaving: true, clearError: true);
@@ -123,111 +114,91 @@ class SetupNotifier extends StateNotifier<SetupState> {
       final tmRepo = _ref.read(trainingMaxRepositoryProvider);
       final programRepo = _ref.read(programRepositoryProvider);
       final workoutRepo = _ref.read(workoutRepositoryProvider);
+      final intensitySvc = DefaultIntensityLookupService();
+      final repSvc = DefaultRepTargetLookupService();
+      final now = DateTime.now();
 
-      // 1. Deactivate any existing active program
+      // 1. Deactivate old programs
       await programRepo.deactivateAll();
 
-      // 2. Resolve UI lift keys to DB lift rows
-      final liftIdMap = <String, int>{}; // uiKey -> db id
+      // 2. Resolve lift keys to DB IDs
+      final liftIdMap = <String, int>{};
       for (final entry in _liftNameMap.entries) {
         final lift = await liftRepo.getLiftByName(entry.value);
-        if (lift == null) {
-          throw Exception('Lift not found in DB: ${entry.value}');
-        }
+        if (lift == null) throw Exception('Lift not found: ${entry.value}');
         liftIdMap[entry.key] = lift.id;
       }
 
-      // 3. Save training maxes
-      final now = DateTime.now();
-      final domainMaxes = <String, domain.TrainingMax>{};
+      // 3. Persist training maxes
       for (final entry in state.trainingMaxes.entries) {
-        final dbLiftId = liftIdMap[entry.key];
-        if (dbLiftId == null) continue;
-        await tmRepo.saveMax(TrainingMaxesCompanion.insert(
-          liftId: dbLiftId,
-          value: entry.value,
-          effectiveDate: now,
+        final dbId = liftIdMap[entry.key];
+        if (dbId == null) continue;
+        await tmRepo.saveMax(TrainingMaxesCompanion(
+          liftId: Value(dbId),
+          value: Value(entry.value),
+          effectiveDate: Value(now),
         ));
-        // Build domain model for generation service
-        domainMaxes[entry.key] = domain.TrainingMax(
-          id: entry.key,
-          liftId: entry.key,
-          value: entry.value,
-          singleEightPercentage: 0.9,
-          sourceType: domain.MaxSourceType.manual,
-          effectiveDate: now,
-        );
       }
 
-      // 4. Create program record
+      // 4. Create program
       final frequency = state.selectedFrequency!;
-      final programId = await programRepo.saveProgram(
-        ProgramsCompanion.insert(
-          name: const Value('My Program'),
-          frequency: frequency.name,
-          currentWeek: const Value(1),
-          totalWeeks: const Value(21),
-          isActive: const Value(true),
-          createdAt: now,
-          updatedAt: now,
-        ),
-      );
+      final programId = await programRepo.saveProgram(ProgramsCompanion(
+        name: const Value('My Program'),
+        frequency: Value(frequency.name),
+        currentWeek: const Value(1),
+        totalWeeks: const Value(21),
+        isActive: const Value(true),
+        createdAt: Value(now),
+        updatedAt: Value(now),
+      ));
 
-      // 5. Generate all 21 weeks
+      // 5. Generate 21 weeks
       final daysPerWeek = _frequencyDays[frequency] ?? 3;
-      final generationService = DefaultWorkoutGenerationService();
-      final intensityService = DefaultIntensityLookupService();
-      final repTargetService = DefaultRepTargetLookupService();
 
       for (int week = 1; week <= 21; week++) {
-        final weekId = await programRepo.saveWeek(
-          WorkoutWeeksCompanion.insert(
-            programId: programId,
-            weekNumber: week,
-            displayLabel: Value('Week $week'),
-          ),
-        );
+        final weekId = await programRepo.saveWeek(WorkoutWeeksCompanion(
+          programId: Value(programId),
+          weekNumber: Value(week),
+          displayLabel: Value('Week $week'),
+        ));
+
+        final intensity = intensitySvc.getIntensityForWeek(week);
+        final repsNormal = repSvc.getNormalSetReps(week);
+        final repsLast = repSvc.getLastSetReps(week);
 
         for (int day = 0; day < daysPerWeek; day++) {
-          final dayId = await programRepo.saveDay(
-            WorkoutDaysCompanion.insert(
-              workoutWeekId: weekId,
-              dayIndex: day,
-              title: Value('Day ${day + 1}'),
-              status: const Value('planned'),
-            ),
-          );
+          final dayId = await programRepo.saveDay(WorkoutDaysCompanion(
+            workoutWeekId: Value(weekId),
+            dayIndex: Value(day),
+            title: Value('Day ${day + 1}'),
+            status: const Value('planned'),
+          ));
 
-          // Generate prescriptions for main lifts on this day
-          // Round-robin the main lifts across days
-          final mainLiftKeys = ['squat', 'bench_press', 'deadlift', 'overhead_press'];
-          final liftForDay = mainLiftKeys[day % mainLiftKeys.length];
-          final dbLiftId = liftIdMap[liftForDay]!;
-          final tm = domainMaxes[liftForDay]!;
+          // Assign main lift round-robin across days
+          final liftKey = _mainLiftKeys[day % _mainLiftKeys.length];
+          final dbLiftId = liftIdMap[liftKey]!;
+          final tm = state.trainingMaxes[liftKey]!;
+          // Round to nearest 2.5 kg
+          final workingWeight =
+              ((tm * intensity / 2.5).round() * 2.5);
 
-          final intensity = intensityService.getIntensityForWeek(week);
-          final repsNormal = repTargetService.getNormalSetReps(week);
-          final repsLast = repTargetService.getLastSetReps(week);
-          final workingWeight = (tm.value * intensity / 2.5).round() * 2.5;
-
-          await workoutRepo.savePrescription(
-            ExercisePrescriptionsCompanion.insert(
-              workoutDayId: dayId,
-              liftId: dbLiftId,
-              trainingMaxSnapshot: tm.value,
-              intensity: intensity,
-              workingWeight: workingWeight.toDouble(),
-              repsPerNormalSet: repsNormal,
-              repOutTarget: repsLast,
-              setGoal: const Value(4),
-              displayOrder: const Value(0),
-            ),
-          );
+          await workoutRepo.savePrescription(ExercisePrescriptionsCompanion(
+            workoutDayId: Value(dayId),
+            liftId: Value(dbLiftId),
+            trainingMaxSnapshot: Value(tm),
+            intensity: Value(intensity),
+            workingWeight: Value(workingWeight),
+            repsPerNormalSet: Value(repsNormal),
+            repOutTarget: Value(repsLast),
+            setGoal: const Value(4),
+            displayOrder: const Value(0),
+            isPrimaryBlock: const Value(true),
+          ));
         }
       }
 
       state = state.copyWith(isSaving: false);
-    } catch (e) {
+    } catch (e, st) {
       state = state.copyWith(
         isSaving: false,
         errorMessage: 'Failed to save: $e',
@@ -237,6 +208,5 @@ class SetupNotifier extends StateNotifier<SetupState> {
 }
 
 final setupProvider =
-    StateNotifierProvider<SetupNotifier, SetupState>((ref) {
-  return SetupNotifier(ref);
-});
+    StateNotifierProvider<SetupNotifier, SetupState>(
+        (ref) => SetupNotifier(ref));
