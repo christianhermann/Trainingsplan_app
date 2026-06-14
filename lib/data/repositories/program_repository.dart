@@ -1,3 +1,63 @@
-// ProgramRepository
-// Data access for Program entities
-// TODO: Implement CRUD operations and queries
+import 'package:drift/drift.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../persistence/database.dart';
+
+class ProgramRepository {
+  ProgramRepository(this._db);
+  final AppDatabase _db;
+
+  Future<Program?> getActiveProgram() =>
+      (_db.select(_db.programs)..where((t) => t.isActive.equals(true)))
+          .getSingleOrNull();
+
+  Future<List<Program>> getAllPrograms() =>
+      _db.select(_db.programs).get();
+
+  Future<int> saveProgram(ProgramsCompanion companion) =>
+      _db.into(_db.programs).insertOnConflictUpdate(companion);
+
+  Future<bool> updateProgram(ProgramsCompanion companion) =>
+      _db.update(_db.programs).replace(companion);
+
+  Future<void> deactivateAll() async {
+    await (_db.update(_db.programs))
+        .write(const ProgramsCompanion(isActive: Value(false)));
+  }
+
+  Future<void> setActive(int programId) async {
+    await deactivateAll();
+    await (_db.update(_db.programs)
+          ..where((t) => t.id.equals(programId)))
+        .write(const ProgramsCompanion(isActive: Value(true)));
+  }
+
+  // ── Workout weeks ──
+
+  Future<List<WorkoutWeek>> getWeeksForProgram(int programId) =>
+      (_db.select(_db.workoutWeeks)
+            ..where((t) => t.programId.equals(programId))
+            ..orderBy([(t) => OrderingTerm.asc(t.weekNumber)]))
+          .get();
+
+  Future<int> saveWeek(WorkoutWeeksCompanion companion) =>
+      _db.into(_db.workoutWeeks).insertOnConflictUpdate(companion);
+
+  // ── Workout days ──
+
+  Future<List<WorkoutDay>> getDaysForWeek(int weekId) =>
+      (_db.select(_db.workoutDays)
+            ..where((t) => t.workoutWeekId.equals(weekId))
+            ..orderBy([(t) => OrderingTerm.asc(t.dayIndex)]))
+          .get();
+
+  Future<int> saveDay(WorkoutDaysCompanion companion) =>
+      _db.into(_db.workoutDays).insertOnConflictUpdate(companion);
+
+  Future<bool> updateDay(WorkoutDaysCompanion companion) =>
+      _db.update(_db.workoutDays).replace(companion);
+}
+
+final programRepositoryProvider = Provider<ProgramRepository>((ref) {
+  return ProgramRepository(ref.watch(databaseProvider));
+});
