@@ -24,8 +24,11 @@ dependencies:
   path: ^1.8.0
   path_provider: ^2.1.0
 
-  # UI/Material
+  # UI
   google_fonts: ^6.1.0
+
+  # Utilities
+  url_launcher: ^6.2.0
 
 dev_dependencies:
   flutter_test:
