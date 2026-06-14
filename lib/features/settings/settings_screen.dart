@@ -1,10 +1,13 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/persistence/database.dart';
+import '../../data/repositories/program_repository.dart';
 import '../../data/repositories/settings_repository.dart';
+import '../../data/repositories/workout_repository.dart';
 
-// ── Provider ──────────────────────────────────────────────────────────────────
+// ── Provider ────────────────────────────────────────────────────────────────
 
 final settingsProvider =
     AsyncNotifierProvider<SettingsNotifier, AppSettingsTableData?>(
@@ -22,9 +25,22 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsTableData?> {
     await repo.saveSettings(companion);
     ref.invalidateSelf();
   }
+
+  /// Deletes all program/week/day/prescription/log data. Settings are kept.
+  Future<void> resetAllData(Ref ref) async {
+    final db = ref.read(databaseProvider);
+    await db.delete(db.exerciseLogs).go();
+    await db.delete(db.exercisePrescriptions).go();
+    await db.delete(db.workoutDays).go();
+    await db.delete(db.workoutWeeks).go();
+    await db.delete(db.programs).go();
+    await db.delete(db.trainingMaxes).go();
+    // Invalidate all affected providers
+    ref.invalidateSelf();
+  }
 }
 
-// ── Screen ────────────────────────────────────────────────────────────────────
+// ── Screen ───────────────────────────────────────────────────────────────────
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -47,7 +63,8 @@ class SettingsScreen extends ConsumerWidget {
                   _SettingsTile(
                     title: 'Weight unit',
                     subtitle: settings.weightUnit.toUpperCase(),
-                    onTap: () => _showWeightUnitPicker(context, ref, settings),
+                    onTap: () =>
+                        _showWeightUnitPicker(context, ref, settings),
                   ),
                   _SettingsTile(
                     title: 'Rounding increment',
@@ -59,7 +76,8 @@ class SettingsScreen extends ConsumerWidget {
                   _SectionHeader('Timer'),
                   _SettingsTile(
                     title: 'Rest timer default',
-                    subtitle: '${settings.restTimerSeconds}s',
+                    subtitle:
+                        '${settings.restTimerSeconds ~/ 60}m ${settings.restTimerSeconds % 60}s',
                     onTap: () =>
                         _showTimerPicker(context, ref, settings),
                   ),
@@ -68,18 +86,20 @@ class SettingsScreen extends ConsumerWidget {
                   SwitchListTile(
                     title: const Text('Show notes field'),
                     value: settings.showNotesField,
-                    onChanged: (v) => ref.read(settingsProvider.notifier).update(
-                          AppSettingsTableCompanion(
-                              showNotesField: Value(v)),
-                        ),
+                    onChanged: (v) =>
+                        ref.read(settingsProvider.notifier).update(
+                              AppSettingsTableCompanion(
+                                  showNotesField: Value(v)),
+                            ),
                   ),
                   SwitchListTile(
                     title: const Text('Show video field'),
                     value: settings.showVideoField,
-                    onChanged: (v) => ref.read(settingsProvider.notifier).update(
-                          AppSettingsTableCompanion(
-                              showVideoField: Value(v)),
-                        ),
+                    onChanged: (v) =>
+                        ref.read(settingsProvider.notifier).update(
+                              AppSettingsTableCompanion(
+                                  showVideoField: Value(v)),
+                            ),
                   ),
                   const SizedBox(height: 24),
                   _SectionHeader('Danger Zone'),
@@ -105,8 +125,8 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showWeightUnitPicker(
-      BuildContext context, WidgetRef ref, AppSettingsTableData settings) {
+  void _showWeightUnitPicker(BuildContext context, WidgetRef ref,
+      AppSettingsTableData settings) {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
@@ -121,8 +141,7 @@ class SettingsScreen extends ConsumerWidget {
               onChanged: (v) {
                 if (v != null) {
                   ref.read(settingsProvider.notifier).update(
-                        AppSettingsTableCompanion(
-                            weightUnit: Value(v)),
+                        AppSettingsTableCompanion(weightUnit: Value(v)),
                       );
                   Navigator.pop(context);
                 }
@@ -134,8 +153,8 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showRoundingPicker(
-      BuildContext context, WidgetRef ref, AppSettingsTableData settings) {
+  void _showRoundingPicker(BuildContext context, WidgetRef ref,
+      AppSettingsTableData settings) {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
@@ -163,8 +182,8 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showTimerPicker(
-      BuildContext context, WidgetRef ref, AppSettingsTableData settings) {
+  void _showTimerPicker(BuildContext context, WidgetRef ref,
+      AppSettingsTableData settings) {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
@@ -173,7 +192,8 @@ class SettingsScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [60, 90, 120, 150, 180, 240, 300].map((s) {
             return RadioListTile<int>(
-              title: Text('${s}s'),
+              title: Text(
+                  '${s ~/ 60}m${s % 60 > 0 ? ' ${s % 60}s' : ''}'),
               value: s,
               groupValue: settings.restTimerSeconds,
               onChanged: (v) {
@@ -205,12 +225,17 @@ class SettingsScreen extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              // TODO: implement full data reset via repository
+            onPressed: () async {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Reset not yet implemented.')),
-              );
+              await ref
+                  .read(settingsProvider.notifier)
+                  .resetAllData(ref as Ref);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('All data has been reset.')),
+                );
+              }
             },
             child: const Text('Reset',
                 style: TextStyle(color: Colors.redAccent)),
@@ -221,7 +246,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.title);

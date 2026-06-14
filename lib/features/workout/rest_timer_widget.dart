@@ -2,6 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/repositories/settings_repository.dart';
+
+// ── Timer state ─────────────────────────────────────────────────────────────
+
 class RestTimerState {
   const RestTimerState({
     required this.totalSeconds,
@@ -12,11 +16,15 @@ class RestTimerState {
   final int remaining;
   final bool isRunning;
 
-  bool get isFinished => remaining <= 0;
+  bool get isFinished => !isRunning && remaining == 0;
   double get progress =>
       totalSeconds == 0 ? 0 : remaining / totalSeconds;
 
-  RestTimerState copyWith({int? totalSeconds, int? remaining, bool? isRunning}) =>
+  RestTimerState copyWith({
+    int? totalSeconds,
+    int? remaining,
+    bool? isRunning,
+  }) =>
       RestTimerState(
         totalSeconds: totalSeconds ?? this.totalSeconds,
         remaining: remaining ?? this.remaining,
@@ -38,7 +46,8 @@ class RestTimerNotifier extends StateNotifier<RestTimerState> {
     state = state.copyWith(isRunning: true);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (state.remaining <= 0) {
-        stop();
+        _timer?.cancel();
+        state = state.copyWith(isRunning: false);
       } else {
         state = state.copyWith(remaining: state.remaining - 1);
       }
@@ -68,15 +77,33 @@ class RestTimerNotifier extends StateNotifier<RestTimerState> {
   }
 }
 
+/// Reads default seconds from settings; falls back to 180.
 final restTimerProvider =
-    StateNotifierProvider<RestTimerNotifier, RestTimerState>(
-        (_) => RestTimerNotifier(180));
+    StateNotifierProvider<RestTimerNotifier, RestTimerState>((ref) {
+  final settingsAsync = ref.watch(settingsRepositoryProvider);
+  // We can't await here, so seed with 180 and update once settings are known.
+  final notifier = RestTimerNotifier(180);
+  // Wire settings once available
+  ref.listen(settingsProvider, (_, next) {
+    next.whenData((s) {
+      if (s != null) notifier.setDuration(s.restTimerSeconds);
+    });
+  });
+  return notifier;
+});
+
+// Import settingsProvider from settings_screen (avoid circular: re-export here)
+import 'package:flutter/material.dart' show BuildContext;
+export '../../features/settings/settings_screen.dart' show settingsProvider;
+
+// ── Widget ───────────────────────────────────────────────────────────────────
 
 class RestTimerWidget extends ConsumerWidget {
   const RestTimerWidget({super.key});
 
   String _fmt(int s) =>
-      '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
+      '${(s ~/ 60).toString().padLeft(2, '0')}:'
+      '${(s % 60).toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -87,7 +114,8 @@ class RestTimerWidget extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withOpacity(0.4),
-        border: Border(bottom: BorderSide(color: cs.outlineVariant, width: 0.5)),
+        border:
+            Border(bottom: BorderSide(color: cs.outlineVariant, width: 0.5)),
       ),
       child: Row(
         children: [

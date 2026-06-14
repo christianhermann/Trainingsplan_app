@@ -10,7 +10,6 @@ import '../../domain/models/enums.dart';
 import '../../domain/services/intensity_lookup_service.dart';
 import '../../domain/services/rep_target_lookup_service.dart';
 
-// Maps UI lift keys -> DB seeded lift names
 const _liftNameMap = {
   'squat': 'squat',
   'bench_press': 'bankdruecken',
@@ -62,7 +61,7 @@ class SetupState {
       );
 }
 
-// ── Notifier ────────────────────────────────────────────────────────────────
+// ── Notifier ─────────────────────────────────────────────────────────────────
 
 class SetupNotifier extends StateNotifier<SetupState> {
   SetupNotifier(this._ref) : super(const SetupState());
@@ -93,7 +92,6 @@ class SetupNotifier extends StateNotifier<SetupState> {
     final allPresent =
         _mainLiftKeys.every((l) => (state.trainingMaxes[l] ?? 0) > 0);
     final isValid = state.selectedFrequency != null && allPresent;
-
     String? error;
     if (state.selectedFrequency == null) {
       error = 'Please select a training frequency';
@@ -118,10 +116,8 @@ class SetupNotifier extends StateNotifier<SetupState> {
       final repSvc = DefaultRepTargetLookupService();
       final now = DateTime.now();
 
-      // 1. Deactivate old programs
       await programRepo.deactivateAll();
 
-      // 2. Resolve lift keys to DB IDs
       final liftIdMap = <String, int>{};
       for (final entry in _liftNameMap.entries) {
         final lift = await liftRepo.getLiftByName(entry.value);
@@ -129,7 +125,6 @@ class SetupNotifier extends StateNotifier<SetupState> {
         liftIdMap[entry.key] = lift.id;
       }
 
-      // 3. Persist training maxes
       for (final entry in state.trainingMaxes.entries) {
         final dbId = liftIdMap[entry.key];
         if (dbId == null) continue;
@@ -140,7 +135,6 @@ class SetupNotifier extends StateNotifier<SetupState> {
         ));
       }
 
-      // 4. Create program
       final frequency = state.selectedFrequency!;
       final programId = await programRepo.saveProgram(ProgramsCompanion(
         name: const Value('My Program'),
@@ -152,7 +146,6 @@ class SetupNotifier extends StateNotifier<SetupState> {
         updatedAt: Value(now),
       ));
 
-      // 5. Generate 21 weeks
       final daysPerWeek = _frequencyDays[frequency] ?? 3;
 
       for (int week = 1; week <= 21; week++) {
@@ -174,13 +167,10 @@ class SetupNotifier extends StateNotifier<SetupState> {
             status: const Value('planned'),
           ));
 
-          // Assign main lift round-robin across days
           final liftKey = _mainLiftKeys[day % _mainLiftKeys.length];
           final dbLiftId = liftIdMap[liftKey]!;
           final tm = state.trainingMaxes[liftKey]!;
-          // Round to nearest 2.5 kg
-          final workingWeight =
-              ((tm * intensity / 2.5).round() * 2.5);
+          final workingWeight = ((tm * intensity / 2.5).round() * 2.5);
 
           await workoutRepo.savePrescription(ExercisePrescriptionsCompanion(
             workoutDayId: Value(dayId),
@@ -198,7 +188,7 @@ class SetupNotifier extends StateNotifier<SetupState> {
       }
 
       state = state.copyWith(isSaving: false);
-    } catch (e, st) {
+    } catch (e) {
       state = state.copyWith(
         isSaving: false,
         errorMessage: 'Failed to save: $e',

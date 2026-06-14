@@ -55,14 +55,12 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
     final days = await programRepo.getDaysForWeek(currentWeek.id);
     if (days.isEmpty) return null;
 
-    // First planned or in-progress day
     final todayDay = days.firstWhere(
       (d) => d.status == 'planned' || d.status == 'inProgress',
       orElse: () => days.last,
     );
 
-    final prescriptions =
-        await workoutRepo.getPrescriptionsForDay(todayDay.id);
+    final prescriptions = await workoutRepo.getPrescriptionsForDay(todayDay.id);
     final logs = await workoutRepo.getLogsForDay(todayDay.id);
     final allLifts = await liftRepo.getAllLifts();
 
@@ -83,22 +81,21 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
     ref.invalidateSelf();
   }
 
-  /// Mark current day completed. If all days in this week are done, advance
-  /// the program to the next week automatically.
+  /// Mark current day completed; auto-advance program week when all days done.
   Future<void> completeWorkout() async {
     final current = state.valueOrNull;
     if (current == null) return;
 
     final programRepo = ref.read(programRepositoryProvider);
 
-    // Mark day completed
+    // 1. Mark day completed
     await programRepo.updateDay(WorkoutDaysCompanion(
       id: Value(current.workoutDayId),
       status: const Value('completed'),
       completedAt: Value(DateTime.now()),
     ));
 
-    // Check if all days in this week are now completed
+    // 2. Re-fetch all days for current week and check if all are done
     final program = await programRepo.getActiveProgram();
     if (program != null) {
       final weeks = await programRepo.getWeeksForProgram(program.id);
@@ -106,14 +103,12 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
         (w) => w.weekNumber == program.currentWeek,
         orElse: () => weeks.first,
       );
-      final days = await programRepo.getDaysForWeek(currentWeek.id);
-      // Re-fetch to get updated statuses
       final updatedDays = await programRepo.getDaysForWeek(currentWeek.id);
-      final allDone = updatedDays.every((d) =>
-          d.id == current.workoutDayId || d.status == 'completed');
+      final allDone = updatedDays.every(
+        (d) => d.id == current.workoutDayId || d.status == 'completed',
+      );
 
       if (allDone && program.currentWeek < program.totalWeeks) {
-        // Advance to next week
         await programRepo.updateProgram(ProgramsCompanion(
           id: Value(program.id),
           currentWeek: Value(program.currentWeek + 1),
