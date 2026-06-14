@@ -1,3 +1,193 @@
-// Exercise logging widget
-// Form for logging completed sets, reps on last set, notes, video
-// TODO: Implement exercise logging UI component
+import 'package:drift/drift.dart' hide Column;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../data/persistence/database.dart';
+
+class ExerciseLogWidget extends StatefulWidget {
+  const ExerciseLogWidget({
+    super.key,
+    required this.prescription,
+    required this.log,
+    required this.liftName,
+    required this.onLogUpdated,
+  });
+
+  final ExercisePrescription prescription;
+  final ExerciseLog? log;
+  final String liftName;
+  final ValueChanged<ExerciseLogsCompanion> onLogUpdated;
+
+  @override
+  State<ExerciseLogWidget> createState() => _ExerciseLogWidgetState();
+}
+
+class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
+  late TextEditingController _repsController;
+  late TextEditingController _notesController;
+  late TextEditingController _videoController;
+  bool _expanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _repsController =
+        TextEditingController(text: widget.log?.repsOnLastSet?.toString() ?? '');
+    _notesController =
+        TextEditingController(text: widget.log?.notes ?? '');
+    _videoController =
+        TextEditingController(text: widget.log?.videoUrl ?? '');
+  }
+
+  @override
+  void dispose() {
+    _repsController.dispose();
+    _notesController.dispose();
+    _videoController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final reps = int.tryParse(_repsController.text);
+    widget.onLogUpdated(ExerciseLogsCompanion(
+      id: widget.log != null ? Value(widget.log!.id) : const Value.absent(),
+      prescriptionId: Value(widget.prescription.id),
+      completedSets: Value(widget.prescription.setGoal),
+      repsOnLastSet: Value(reps),
+      notes: Value(_notesController.text.isEmpty ? null : _notesController.text),
+      videoUrl:
+          Value(_videoController.text.isEmpty ? null : _videoController.text),
+      completedAt: Value(DateTime.now()),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.prescription;
+    final isLogged = widget.log?.repsOnLastSet != null;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(widget.liftName,
+                      style: Theme.of(context).textTheme.headlineSmall),
+                ),
+                if (isLogged)
+                  const Icon(Icons.check_circle,
+                      color: Colors.greenAccent, size: 20),
+                IconButton(
+                  icon: Icon(
+                      _expanded ? Icons.expand_less : Icons.expand_more),
+                  onPressed: () =>
+                      setState(() => _expanded = !_expanded),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _StatChip(
+                    label: 'Weight',
+                    value: '${p.workingWeight.toStringAsFixed(1)} kg',
+                    highlight: true),
+                const SizedBox(width: 8),
+                _StatChip(label: 'Sets', value: '${p.setGoal}'),
+                const SizedBox(width: 8),
+                _StatChip(label: 'Reps', value: '${p.repsPerNormalSet}'),
+                const SizedBox(width: 8),
+                _StatChip(
+                    label: 'Last set ≥',
+                    value: '${p.repOutTarget}',
+                    accent: true),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _repsController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: 'Reps on last set',
+                hintText: 'e.g. 8',
+              ),
+              onChanged: (_) => _save(),
+            ),
+            if (_expanded) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _notesController,
+                decoration: const InputDecoration(
+                  labelText: 'Notes',
+                  hintText: 'Optional notes',
+                ),
+                maxLines: 2,
+                onChanged: (_) => _save(),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _videoController,
+                decoration: const InputDecoration(
+                  labelText: 'Video URL',
+                  hintText: 'https://...',
+                ),
+                keyboardType: TextInputType.url,
+                onChanged: (_) => _save(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({
+    required this.label,
+    required this.value,
+    this.highlight = false,
+    this.accent = false,
+  });
+  final String label;
+  final String value;
+  final bool highlight;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final bg = highlight
+        ? cs.primaryContainer
+        : accent
+            ? cs.tertiaryContainer
+            : cs.surfaceContainerHighest;
+    final fg = highlight
+        ? cs.onPrimaryContainer
+        : accent
+            ? cs.onTertiaryContainer
+            : cs.onSurface;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Column(
+        children: [
+          Text(label,
+              style: TextStyle(fontSize: 10, color: fg.withOpacity(0.7))),
+          const SizedBox(height: 2),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.bold, color: fg)),
+        ],
+      ),
+    );
+  }
+}
