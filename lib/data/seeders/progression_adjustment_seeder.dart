@@ -13,24 +13,24 @@ import '../../domain/models/progress_adjustment.dart';
 /// by [ProgressionService] when no lift-specific entry is found.
 ///
 /// Outcomes and workbook deltas:
-///   belowBy2 : -0.050  (missed by ≥2 reps)
-///   belowBy1 : -0.020  (missed by 1 rep)
-///   hit      :  0.000  (hit target exactly)
-///   plus1    : +0.005  (beat by 1 rep)
-///   plus2    : +0.010  (beat by 2 reps)
-///   plus3    : +0.015  (beat by 3 reps)
-///   plus4    : +0.020  (beat by 4 reps)
-///   plus5    : +0.030  (beat by ≥5 reps)
+///   belowBy2 : -0.050  (2+ sets missed)
+///   belowBy1 : -0.020  (1 set missed, or last set stopped before failure)
+///   hit      :  0.000  (all sets done; last set at RIR 0)
+///   plus1    : +0.010  (beat rep goal by 1 on last set)
+///   plus2    : +0.030  (beat rep goal by 2 on last set)
+///   plus3    : +0.050  (beat rep goal by 3 on last set)
+///   plus4    : +0.050  (beat rep goal by 4 on last set)
+///   plus5    : +0.050  (beat rep goal by ≥5 on last set)
 class ProgressionAdjustmentSeeder {
   static const _adjustments = [
     (outcome: ProgressOutcome.belowBy2, delta: -0.050),
     (outcome: ProgressOutcome.belowBy1, delta: -0.020),
     (outcome: ProgressOutcome.hit,      delta:  0.000),
-    (outcome: ProgressOutcome.plus1,    delta:  0.005),
-    (outcome: ProgressOutcome.plus2,    delta:  0.010),
-    (outcome: ProgressOutcome.plus3,    delta:  0.015),
-    (outcome: ProgressOutcome.plus4,    delta:  0.020),
-    (outcome: ProgressOutcome.plus5,    delta:  0.030),
+    (outcome: ProgressOutcome.plus1,    delta:  0.010),
+    (outcome: ProgressOutcome.plus2,    delta:  0.030),
+    (outcome: ProgressOutcome.plus3,    delta:  0.050),
+    (outcome: ProgressOutcome.plus4,    delta:  0.050),
+    (outcome: ProgressOutcome.plus5,    delta:  0.050),
   ];
 
   /// Canonical 13 workbook lift IDs + global fallback key.
