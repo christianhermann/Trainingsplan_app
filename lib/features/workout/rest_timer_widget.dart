@@ -2,9 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/settings/settings_screen.dart' show settingsProvider;
+import '../settings/settings_provider.dart';
 
-// ── Timer state ──────────────────────────────────────────────────────────────
+// ── Timer state ───────────────────────────────────────────────────────────────────
 
 class RestTimerState {
   const RestTimerState({
@@ -12,27 +12,27 @@ class RestTimerState {
     required this.remaining,
     required this.isRunning,
   });
-  final int totalSeconds;
-  final int remaining;
+  final int  totalSeconds;
+  final int  remaining;
   final bool isRunning;
 
-  bool get isFinished => !isRunning && remaining == 0;
-  double get progress =>
+  bool   get isFinished => !isRunning && remaining == 0;
+  double get progress   =>
       totalSeconds == 0 ? 0 : remaining / totalSeconds;
 
   RestTimerState copyWith({
-    int? totalSeconds,
-    int? remaining,
+    int?  totalSeconds,
+    int?  remaining,
     bool? isRunning,
   }) =>
       RestTimerState(
         totalSeconds: totalSeconds ?? this.totalSeconds,
-        remaining: remaining ?? this.remaining,
-        isRunning: isRunning ?? this.isRunning,
+        remaining:    remaining    ?? this.remaining,
+        isRunning:    isRunning    ?? this.isRunning,
       );
 }
 
-// ── Notifier ─────────────────────────────────────────────────────────────────
+// ── Notifier ─────────────────────────────────────────────────────────────────────
 
 class RestTimerNotifier extends Notifier<RestTimerState> {
   static const _defaultSeconds = 180;
@@ -40,6 +40,7 @@ class RestTimerNotifier extends Notifier<RestTimerState> {
 
   @override
   RestTimerState build() {
+    // React to settings changes: reset duration whenever restTimerSeconds changes.
     ref.listen(settingsProvider, (_, next) {
       next.whenData((s) {
         if (s != null) setDuration(s.restTimerSeconds);
@@ -48,8 +49,8 @@ class RestTimerNotifier extends Notifier<RestTimerState> {
     ref.onDispose(() => _timer?.cancel());
     return const RestTimerState(
       totalSeconds: _defaultSeconds,
-      remaining: _defaultSeconds,
-      isRunning: false,
+      remaining:    _defaultSeconds,
+      isRunning:    false,
     );
   }
 
@@ -86,7 +87,7 @@ class RestTimerNotifier extends Notifier<RestTimerState> {
 final restTimerProvider =
     NotifierProvider<RestTimerNotifier, RestTimerState>(RestTimerNotifier.new);
 
-// ── Widget ────────────────────────────────────────────────────────────────────
+// ── Widget ────────────────────────────────────────────────────────────────────────
 
 class RestTimerWidget extends ConsumerWidget {
   const RestTimerWidget({super.key});
@@ -98,14 +99,14 @@ class RestTimerWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final timer = ref.watch(restTimerProvider);
-    final cs = Theme.of(context).colorScheme;
+    final cs    = Theme.of(context).colorScheme;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        border:
-            Border(bottom: BorderSide(color: cs.outlineVariant, width: 0.5)),
+        border: Border(
+            bottom: BorderSide(color: cs.outlineVariant, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -116,17 +117,17 @@ class RestTimerWidget extends ConsumerWidget {
               fit: StackFit.expand,
               children: [
                 CircularProgressIndicator(
-                  value: timer.progress,
-                  strokeWidth: 3,
+                  value:           timer.progress,
+                  strokeWidth:     3,
                   backgroundColor: cs.outlineVariant,
-                  valueColor: AlwaysStoppedAnimation<Color>(
+                  valueColor:      AlwaysStoppedAnimation<Color>(
                       timer.isFinished ? cs.error : cs.primary),
                 ),
                 Center(
                   child: Text(
                     _fmt(timer.remaining),
                     style: TextStyle(
-                        fontSize: 9,
+                        fontSize:   9,
                         fontWeight: FontWeight.bold,
                         color: timer.isFinished ? cs.error : cs.onSurface),
                   ),
@@ -144,7 +145,7 @@ class RestTimerWidget extends ConsumerWidget {
                 : ref.read(restTimerProvider.notifier).start(),
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon:      const Icon(Icons.refresh),
             onPressed: () => ref.read(restTimerProvider.notifier).reset(),
           ),
         ],
