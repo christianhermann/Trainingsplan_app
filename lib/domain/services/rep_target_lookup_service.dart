@@ -1,24 +1,6 @@
 import '../models/rep_target_point.dart';
 
-abstract class RepTargetLookupService {
-  int getNormalSetTarget(
-    String liftId,
-    double intensity,
-    List<RepTargetPoint> repTargetPoints,
-  );
-
-  int getLastSetTarget(
-    String liftId,
-    double intensity,
-    List<RepTargetPoint> repTargetPoints,
-  );
-
-  /// Direct week-based lookups using built-in table.
-  int getNormalSetReps(int weekNumber);
-  int getLastSetReps(int weekNumber);
-}
-
-class DefaultRepTargetLookupService implements RepTargetLookupService {
+class RepTargetLookupService {
   // Normal set rep targets per week (1–21)
   static const _normalReps = [
     10, 10, 8, 8, 6, 6, 6,
@@ -35,19 +17,16 @@ class DefaultRepTargetLookupService implements RepTargetLookupService {
     3, 2,
   ];
 
-  @override
   int getNormalSetReps(int weekNumber) {
     final idx = (weekNumber - 1).clamp(0, _normalReps.length - 1);
     return _normalReps[idx];
   }
 
-  @override
   int getLastSetReps(int weekNumber) {
     final idx = (weekNumber - 1).clamp(0, _lastSetReps.length - 1);
     return _lastSetReps[idx];
   }
 
-  @override
   int getNormalSetTarget(
     String liftId,
     double intensity,
@@ -57,7 +36,6 @@ class DefaultRepTargetLookupService implements RepTargetLookupService {
       (p) => p.liftId == liftId && (p.intensity - intensity).abs() < 0.01,
     );
     if (match.isNotEmpty) return match.first.normalSetReps;
-    // Fallback: estimate from intensity
     if (intensity >= 0.95) return 2;
     if (intensity >= 0.90) return 3;
     if (intensity >= 0.85) return 4;
@@ -67,7 +45,6 @@ class DefaultRepTargetLookupService implements RepTargetLookupService {
     return 10;
   }
 
-  @override
   int getLastSetTarget(
     String liftId,
     double intensity,
