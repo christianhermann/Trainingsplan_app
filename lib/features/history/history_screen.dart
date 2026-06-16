@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/program_repository.dart';
 
 final _historyProvider =
-    FutureProvider<List<WorkoutDayData>>((ref) async {
+    FutureProvider<List<WorkoutDay>>((ref) async {
   final programRepo = ref.read(programRepositoryProvider);
   final programs = await programRepo.getAllPrograms();
-  final days = <WorkoutDayData>[];
+  final days = <WorkoutDay>[];
   for (final p in programs) {
     final weeks = await programRepo.getWeeksForProgram(p.id);
     for (final w in weeks) {
