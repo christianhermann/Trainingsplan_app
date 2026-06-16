@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/persistence/database.dart';
 import '../../data/repositories/program_repository.dart';
 
 final _historyProvider =
-    FutureProvider<List<WorkoutDay>>((ref) async {
+    FutureProvider<List<WorkoutDaysData>>((ref) async {
   final programRepo = ref.read(programRepositoryProvider);
   final programs = await programRepo.getAllPrograms();
-  final days = <WorkoutDay>[];
+  final days = <WorkoutDaysData>[];
   for (final p in programs) {
     final weeks = await programRepo.getWeeksForProgram(p.id);
     for (final w in weeks) {
@@ -35,7 +36,7 @@ class HistoryScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('History')),
       body: historyAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text('Error: \$e')),
         data: (days) => days.isEmpty
             ? const Center(child: Text('No completed workouts yet.'))
             : ListView.separated(
@@ -57,7 +58,7 @@ class HistoryScreen extends ConsumerWidget {
                       ),
                       title: Text(day.title.isNotEmpty
                           ? day.title
-                          : 'Day ${day.dayIndex + 1}'),
+                          : 'Day \${day.dayIndex + 1}'),
                       subtitle: Text(dateStr),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {},
@@ -70,8 +71,8 @@ class HistoryScreen extends ConsumerWidget {
   }
 
   String _formatDate(DateTime dt) {
-    return '${dt.day.toString().padLeft(2, '0')}.'
-        '${dt.month.toString().padLeft(2, '0')}.'
-        '${dt.year}';
+    return '\${dt.day.toString().padLeft(2, \'0\')}.'
+        '\${dt.month.toString().padLeft(2, \'0\')}.'
+        '\${dt.year}';
   }
 }
