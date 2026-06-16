@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/catalogue/lift_catalogue.dart';
 import '../../data/persistence/database.dart';
 import '../../data/repositories/lift_repository.dart';
 import '../../data/repositories/program_repository.dart';
@@ -8,7 +9,7 @@ import '../../data/repositories/training_max_repository.dart';
 import '../../domain/models/enums.dart';
 import '../../domain/services/workout_generator_service.dart';
 
-// ── Lift key maps (stable name column values) ──────────────────────────────────
+// ── Lift key maps ─────────────────────────────────────────────────────────────
 
 const _liftNameMap = <String, String>{
   'squat':            'squat',
@@ -33,12 +34,8 @@ const _mainLiftKeys = [
   'overhead_press',
 ];
 
-/// For each main lift: which aux lift DB name-keys are valid choices,
-/// paired with the workbook display label.
-///
-/// Order: [0] = aux 1 (workbook default), [1] = aux 2.
-/// Deadlift and OHP have only one real workbook option — both slots are
-/// provided so the UI remains consistent (single option selectable only).
+/// Aux options per main lift (slot key → [aux1 key, aux2 key]).
+/// Deadlift and OHP have a single workbook aux; both point to the same key.
 const auxOptions = <String, List<({String key, String label})>>{
   'squat': [
     (key: 'front_squat',      label: 'Leg Press'),
@@ -50,23 +47,19 @@ const auxOptions = <String, List<({String key, String label})>>{
   ],
   'deadlift': [
     (key: 'deadlift_aux',     label: 'Trap Bar Deadlift'),
-    (key: 'deadlift_aux',     label: 'Trap Bar Deadlift'), // single option
   ],
   'overhead_press': [
-    (key: 'ohp_aux',          label: 'DB Schulterdruecken'),
-    (key: 'ohp_aux',          label: 'DB Schulterdruecken'), // single option
+    (key: 'ohp_aux',          label: 'DB Schulterdrücken'),
   ],
 };
 
-/// Default workbook aux selections: main-lift key → chosen aux lift key.
 const _defaultAux = <String, String>{
-  'squat':          'front_squat',       // Leg Press
-  'bench_press':    'close_grip_bench',  // DB Bench
-  'deadlift':       'deadlift_aux',      // Trap Bar Deadlift
-  'overhead_press': 'ohp_aux',           // DB Schulterdruecken
+  'squat':          'front_squat',
+  'bench_press':    'close_grip_bench',
+  'deadlift':       'deadlift_aux',
+  'overhead_press': 'ohp_aux',
 };
 
-/// Maps every aux lift key → its parent main lift key (for TM inheritance).
 const _auxToMainTmKey = <String, String>{
   'front_squat':      'squat',
   'squat_aux2':       'squat',
@@ -79,13 +72,14 @@ const _auxToMainTmKey = <String, String>{
   'pulldowns':        'deadlift',
 };
 
-// ── State ─────────────────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────────
 
 class SetupState {
   const SetupState({
     this.selectedFrequency,
     this.trainingMaxes       = const {},
     this.selectedAuxiliaries = _defaultAux,
+    this.liftNames           = liftDefaults,
     this.isValid             = false,
     this.isSaving            = false,
     this.errorMessage,
@@ -94,8 +88,11 @@ class SetupState {
   final ProgramFrequency?   selectedFrequency;
   final Map<String, double> trainingMaxes;
 
-  /// main-lift key → chosen aux lift key (one per main lift).
+  /// main-lift key → chosen aux slot key.
   final Map<String, String> selectedAuxiliaries;
+
+  /// slotKey → user-chosen display name (defaults = workbook names).
+  final Map<String, String> liftNames;
 
   final bool    isValid;
   final bool    isSaving;
@@ -105,6 +102,7 @@ class SetupState {
     ProgramFrequency?    selectedFrequency,
     Map<String, double>? trainingMaxes,
     Map<String, String>? selectedAuxiliaries,
+    Map<String, String>? liftNames,
     bool?                isValid,
     bool?                isSaving,
     String?              errorMessage,
@@ -114,6 +112,7 @@ class SetupState {
         selectedFrequency:   selectedFrequency   ?? this.selectedFrequency,
         trainingMaxes:       trainingMaxes       ?? this.trainingMaxes,
         selectedAuxiliaries: selectedAuxiliaries ?? this.selectedAuxiliaries,
+        liftNames:           liftNames           ?? this.liftNames,
         isValid:             isValid             ?? this.isValid,
         isSaving:            isSaving            ?? this.isSaving,
         errorMessage: clearError
@@ -122,7 +121,7 @@ class SetupState {
       );
 }
 
-// ── Notifier ────────────────────────────────────────────────────────────────────────
+// ── Notifier ──────────────────────────────────────────────────────────────────
 
 class SetupNotifier extends Notifier<SetupState> {
   @override
@@ -144,17 +143,28 @@ class SetupNotifier extends Notifier<SetupState> {
     _validate();
   }
 
-  /// Set the chosen auxiliary lift key for a given main lift.
   void selectAuxiliary(String mainLiftKey, String auxLiftKey) {
     final updated = Map<String, String>.from(state.selectedAuxiliaries);
     updated[mainLiftKey] = auxLiftKey;
     state = state.copyWith(selectedAuxiliaries: updated, clearError: true);
   }
 
+  /// Override the display name shown for a given slot key.
+  /// Pass an empty string to revert to the workbook default.
+  void setLiftName(String slotKey, String displayName) {
+    final name = displayName.trim().isEmpty
+        ? (liftDefaults[slotKey] ?? slotKey)
+        : displayName.trim();
+    final updated = Map<String, String>.from(state.liftNames);
+    updated[slotKey] = name;
+    state = state.copyWith(liftNames: updated);
+  }
+
   void clearAllMaxes() {
     state = state.copyWith(
       trainingMaxes:       {},
       selectedAuxiliaries: _defaultAux,
+      liftNames:           liftDefaults,
     );
     _validate();
   }
@@ -187,10 +197,10 @@ class SetupNotifier extends Notifier<SetupState> {
       final frequency    = state.selectedFrequency!;
       final chosenAux    = state.selectedAuxiliaries;
 
-      // ── 1. Deactivate existing programs ────────────────────────────────────────
+      // ── 1. Deactivate existing programs ────────────────────────────────
       await programRepo.deactivateAll();
 
-      // ── 2. Resolve all lift DB ids ────────────────────────────────────────────────
+      // ── 2. Resolve all lift DB ids ──────────────────────────────────────
       final liftDbIds = <String, int>{};
       for (final liftId in _liftNameMap.keys) {
         final lift = await liftRepo.getLiftByName(liftId);
@@ -202,7 +212,23 @@ class SetupNotifier extends Notifier<SetupState> {
         }
       }
 
-      // ── 3. Save TMs for the 4 main lifts ────────────────────────────────────────────
+      // ── 3. Patch displayName for every slot the user may have renamed ───
+      //
+      // The stable [name] column (= slot key) never changes.
+      // Only [displayName] is updated so the rest of the app (today screen,
+      // history, etc.) immediately reflects the user's chosen label.
+      for (final entry in state.liftNames.entries) {
+        final slotKey = entry.key;
+        final label   = entry.value;
+        final dbId    = liftDbIds[slotKey];
+        if (dbId == null) continue;
+        await liftRepo.updateLift(LiftsCompanion(
+          id:          Value(dbId),
+          displayName: Value(label),
+        ));
+      }
+
+      // ── 4. Save TMs for the 4 main lifts ───────────────────────────────
       for (final key in _mainLiftKeys) {
         final tm   = state.trainingMaxes[key]!;
         final dbId = liftDbIds[key]!;
@@ -213,7 +239,7 @@ class SetupNotifier extends Notifier<SetupState> {
         ));
       }
 
-      // ── 4. Insert Program row ───────────────────────────────────────────────────────
+      // ── 5. Insert Program row ───────────────────────────────────────────
       final programId = await programRepo.saveProgram(
         ProgramsCompanion.insert(
           name:      'My Program',
@@ -224,7 +250,7 @@ class SetupNotifier extends Notifier<SetupState> {
         ),
       );
 
-      // ── 5. Insert 21 WorkoutWeek rows ───────────────────────────────────────────────
+      // ── 6. Insert 21 WorkoutWeek rows ───────────────────────────────────
       final weeks = <({int id, int weekNumber})>[];
       for (int w = 1; w <= 21; w++) {
         final weekId = await programRepo.saveWeek(
@@ -236,29 +262,22 @@ class SetupNotifier extends Notifier<SetupState> {
         weeks.add((id: weekId, weekNumber: w));
       }
 
-      // ── 6. Build TM map for chosen aux lifts only ──────────────────────────────────
-      //
-      // Only the selected aux lift per main lift gets a TM entry and will
-      // be passed to the generator. Unselected aux options are skipped.
+      // ── 7. Build TM map for chosen aux lifts only ───────────────────────
       final fullTmMap = <String, double>{
         for (final key in _mainLiftKeys)
           key: state.trainingMaxes[key]!,
       };
-
       for (final mainKey in _mainLiftKeys) {
         final auxKey = chosenAux[mainKey];
         if (auxKey == null) continue;
-        final parentTm = state.trainingMaxes[mainKey]!;
-        fullTmMap[auxKey] = parentTm;
+        fullTmMap[auxKey] = state.trainingMaxes[mainKey]!;
       }
-
-      // Back exercises always included (inherit deadlift TM).
       const backKeys = ['barbell_rows', 'dumbbell_rows', 'pulldowns'];
       for (final k in backKeys) {
         fullTmMap[k] = state.trainingMaxes['deadlift']!;
       }
 
-      // ── 7. Delegate generation ─────────────────────────────────────────────────────────
+      // ── 8. Delegate generation ──────────────────────────────────────────
       await generatorSvc.generateFullProgram(
         programId:     programId,
         frequency:     frequency,
