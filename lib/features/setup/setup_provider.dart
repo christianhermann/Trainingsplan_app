@@ -1,59 +1,85 @@
+import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/persistence/database.dart';
 import '../../data/repositories/lift_repository.dart';
 import '../../data/repositories/program_repository.dart';
 import '../../data/repositories/training_max_repository.dart';
-import '../../data/repositories/workout_repository.dart';
 import '../../domain/models/enums.dart';
-import '../../domain/services/intensity_lookup_service.dart';
-import '../../domain/services/rep_target_lookup_service.dart';
+import '../../domain/services/workout_generator_service.dart';
 
-const _liftNameMap = {
-  'squat': 'squat',
-  'bench_press': 'bankdruecken',
-  'deadlift': 'deadlift',
-  'overhead_press': 'schulterdruecken',
+/// Maps domain liftId keys → [name] column values in the lifts table.
+/// Must exactly match what _seedLifts() inserts in database.dart.
+const _liftNameMap = <String, String>{
+  // Main lifts
+  'squat':            'squat',
+  'bench_press':      'bench_press',
+  'deadlift':         'deadlift',
+  'overhead_press':   'overhead_press',
+  // Auxiliary tier 1
+  'front_squat':      'front_squat',
+  'close_grip_bench': 'close_grip_bench',
+  // Auxiliary tier 2
+  'squat_aux2':       'squat_aux2',
+  'bench_aux2':       'bench_aux2',
+  'deadlift_aux':     'deadlift_aux',
+  'ohp_aux':          'ohp_aux',
+  // Back exercises
+  'barbell_rows':     'barbell_rows',
+  'dumbbell_rows':    'dumbbell_rows',
+  'pulldowns':        'pulldowns',
 };
 
-const _mainLiftKeys = ['squat', 'bench_press', 'deadlift', 'overhead_press'];
+/// Lift IDs for which the user must supply a training max on the setup screen.
+const _mainLiftKeys = [
+  'squat',
+  'bench_press',
+  'deadlift',
+  'overhead_press',
+];
 
-const _frequencyDays = {
-  ProgramFrequency.two: 2,
-  ProgramFrequency.three: 3,
-  ProgramFrequency.four: 4,
-  ProgramFrequency.five: 5,
-  ProgramFrequency.six: 6,
+/// Aux lifts inherit TM from their parent main lift (same movement pattern).
+const _auxToMainTmKey = <String, String>{
+  'front_squat':      'squat',
+  'squat_aux2':       'squat',
+  'close_grip_bench': 'bench_press',
+  'bench_aux2':       'bench_press',
+  'deadlift_aux':     'deadlift',
+  'ohp_aux':          'overhead_press',
+  // Back exercises share the deadlift TM as the closest pattern
+  'barbell_rows':     'deadlift',
+  'dumbbell_rows':    'deadlift',
+  'pulldowns':        'deadlift',
 };
 
 class SetupState {
   const SetupState({
     this.selectedFrequency,
     this.trainingMaxes = const {},
-    this.isValid = false,
-    this.isSaving = false,
+    this.isValid   = false,
+    this.isSaving  = false,
     this.errorMessage,
   });
 
-  final ProgramFrequency? selectedFrequency;
+  final ProgramFrequency?   selectedFrequency;
   final Map<String, double> trainingMaxes;
-  final bool isValid;
-  final bool isSaving;
-  final String? errorMessage;
+  final bool                isValid;
+  final bool                isSaving;
+  final String?             errorMessage;
 
   SetupState copyWith({
-    ProgramFrequency? selectedFrequency,
+    ProgramFrequency?    selectedFrequency,
     Map<String, double>? trainingMaxes,
-    bool? isValid,
-    bool? isSaving,
-    String? errorMessage,
-    bool clearError = false,
+    bool?                isValid,
+    bool?                isSaving,
+    String?              errorMessage,
+    bool                 clearError = false,
   }) =>
       SetupState(
         selectedFrequency: selectedFrequency ?? this.selectedFrequency,
-        trainingMaxes: trainingMaxes ?? this.trainingMaxes,
-        isValid: isValid ?? this.isValid,
-        isSaving: isSaving ?? this.isSaving,
+        trainingMaxes:     trainingMaxes     ?? this.trainingMaxes,
+        isValid:           isValid           ?? this.isValid,
+        isSaving:          isSaving          ?? this.isSaving,
         errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       );
 }
@@ -101,87 +127,91 @@ class SetupNotifier extends Notifier<SetupState> {
   Future<void> saveAndGenerate() async {
     if (!state.isValid) return;
     state = state.copyWith(isSaving: true, clearError: true);
-    try {
-      final liftRepo = ref.read(liftRepositoryProvider);
-      final tmRepo = ref.read(trainingMaxRepositoryProvider);
-      final programRepo = ref.read(programRepositoryProvider);
-      final workoutRepo = ref.read(workoutRepositoryProvider);
-      final intensitySvc = IntensityLookupService();
-      final repSvc = RepTargetLookupService();
-      final now = DateTime.now();
 
+    try {
+      final liftRepo     = ref.read(liftRepositoryProvider);
+      final tmRepo       = ref.read(trainingMaxRepositoryProvider);
+      final programRepo  = ref.read(programRepositoryProvider);
+      final generatorSvc = ref.read(workoutGeneratorServiceProvider);
+      final now          = DateTime.now();
+      final frequency    = state.selectedFrequency!;
+
+      // ── 1. Deactivate existing programs ─────────────────────────────────
       await programRepo.deactivateAll();
 
-      final liftIdMap = <String, int>{};
-      for (final entry in _liftNameMap.entries) {
-        final lift = await liftRepo.getLiftByName(entry.value);
-        if (lift == null) throw Exception('Lift not found: ${entry.value}');
-        liftIdMap[entry.key] = lift.id;
+      // ── 2. Resolve all 13 lift DB ids ───────────────────────────────────
+      // liftNameMap key == DB name column, so lookup by name = key itself.
+      final liftDbIds = <String, int>{};
+      for (final liftId in _liftNameMap.keys) {
+        final lift = await liftRepo.getLiftByName(liftId);
+        if (lift != null) liftDbIds[liftId] = lift.id;
       }
 
-      for (final entry in state.trainingMaxes.entries) {
-        final dbId = liftIdMap[entry.key];
-        if (dbId == null) continue;
+      // Verify all 4 main lifts resolved (aux lifts may not exist on old DBs).
+      for (final key in _mainLiftKeys) {
+        if (!liftDbIds.containsKey(key)) {
+          throw Exception('Lift not found in DB: $key');
+        }
+      }
+
+      // ── 3. Save training maxes for the 4 main lifts ─────────────────────
+      for (final key in _mainLiftKeys) {
+        final tm    = state.trainingMaxes[key]!;
+        final dbId  = liftDbIds[key]!;
         await tmRepo.saveMax(TrainingMaxesCompanion.insert(
-          liftId: dbId,
-          value: entry.value,
+          liftId:        dbId,
+          value:         tm,
           effectiveDate: now,
         ));
       }
 
-      final frequency = state.selectedFrequency!;
+      // ── 4. Insert Program row (active = true) ────────────────────────────
       final programId = await programRepo.saveProgram(
         ProgramsCompanion.insert(
-          name: 'My Program',
+          name:      'My Program',
           frequency: frequency.name,
           createdAt: now,
           updatedAt: now,
+          isActive:  const Value(true),
         ),
       );
 
-      final daysPerWeek = _frequencyDays[frequency] ?? 3;
-
-      for (int week = 1; week <= 21; week++) {
+      // ── 5. Insert 21 WorkoutWeek rows ────────────────────────────────────
+      final weeks = <({int id, int weekNumber})>[];
+      for (int w = 1; w <= 21; w++) {
         final weekId = await programRepo.saveWeek(
           WorkoutWeeksCompanion.insert(
-            programId: programId,
-            weekNumber: week,
+            programId:  programId,
+            weekNumber: w,
           ),
         );
-        final intensity = intensitySvc.getIntensityForWeek(week);
-        final repsNormal = repSvc.getNormalSetReps(week);
-        final repsLast = repSvc.getLastSetReps(week);
-
-        for (int day = 0; day < daysPerWeek; day++) {
-          final dayId = await programRepo.saveDay(
-            WorkoutDaysCompanion.insert(
-              workoutWeekId: weekId,
-              dayIndex: day,
-            ),
-          );
-          final liftKey = _mainLiftKeys[day % _mainLiftKeys.length];
-          final dbLiftId = liftIdMap[liftKey]!;
-          final tm = state.trainingMaxes[liftKey]!;
-          final workingWeight = ((tm * intensity / 2.5).round() * 2.5);
-
-          await workoutRepo.savePrescription(
-            ExercisePrescriptionsCompanion.insert(
-              workoutDayId: dayId,
-              liftId: dbLiftId,
-              trainingMaxSnapshot: tm,
-              intensity: intensity,
-              workingWeight: workingWeight,
-              repsPerNormalSet: repsNormal,
-              repOutTarget: repsLast,
-              setGoal: 4,
-            ),
-          );
-        }
+        weeks.add((id: weekId, weekNumber: w));
       }
+
+      // ── 6. Derive full TM map: aux lifts inherit their main lift TM ──────
+      final fullTmMap = <String, double>{
+        // Main lifts
+        for (final key in _mainLiftKeys) key: state.trainingMaxes[key]!,
+        // Aux lifts
+        for (final e in _auxToMainTmKey.entries)
+          e.key: state.trainingMaxes[e.value]!,
+      };
+
+      // ── 7. Delegate all WorkoutDay + ExercisePrescription generation ─────
+      await generatorSvc.generateFullProgram(
+        programId:     programId,
+        frequency:     frequency,
+        weeks:         weeks,
+        trainingMaxes: fullTmMap,
+        liftDbIds:     liftDbIds,
+      );
+
       state = state.copyWith(isSaving: false);
     } catch (e) {
       state = state.copyWith(
-          isSaving: false, errorMessage: 'Failed to save: $e');
+        isSaving: false,
+        errorMessage: 'Failed to save: $e',
+      );
     }
   }
 }

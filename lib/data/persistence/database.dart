@@ -144,27 +144,42 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
+  /// Seeds the canonical 13 workbook lifts.
+  ///
+  /// The [name] column is the stable liftId key used throughout the app
+  /// (matches frequency_template_seeder / intensity_seeder / rep_target_seeder).
+  /// The [displayName] column is the human-readable label shown in the UI.
+  ///
+  /// Schema:
+  ///   (name, displayName, category, isMainLift, isAuxiliaryLift, defaultOrder)
   Future<void> _seedLifts() async {
     const seeds = [
-      ('squat', 'Squat', 'main', true, false, 1),
-      ('bankdruecken', 'Bankdrücken', 'main', true, false, 2),
-      ('deadlift', 'Deadlift', 'main', true, false, 3),
-      ('schulterdruecken', 'Schulterdrücken', 'main', true, false, 4),
-      ('leg_press', 'Leg Press', 'auxiliary', false, true, 5),
-      ('wider_stance_squat', 'Wider Stance Squat', 'auxiliary', false, true, 6),
-      ('db_bench', 'DB Bench', 'auxiliary', false, true, 7),
-      ('incline_db_press', 'Incline DB Press', 'auxiliary', false, true, 8),
-      ('trap_bar_deadlift', 'Trap Bar Deadlift', 'auxiliary', false, true, 9),
-      ('db_schulterdruecken', 'DB Schulterdrücken', 'auxiliary', false, true, 10),
+      // ── Main lifts ──────────────────────────────────────────────────────
+      ('squat',             'Squat',              'main',      true,  false, 1),
+      ('bench_press',       'Bench Press',         'main',      true,  false, 2),
+      ('deadlift',          'Deadlift',            'main',      true,  false, 3),
+      ('overhead_press',    'Overhead Press',      'main',      true,  false, 4),
+      // ── Auxiliary tier 1 ───────────────────────────────────────────────
+      ('front_squat',       'Front Squat',         'auxiliary', false, true,  5),
+      ('close_grip_bench',  'Close Grip Bench',    'auxiliary', false, true,  6),
+      // ── Auxiliary tier 2 ───────────────────────────────────────────────
+      ('squat_aux2',        'Squat (Aux 2)',        'auxiliary', false, true,  7),
+      ('bench_aux2',        'Bench Press (Aux 2)', 'auxiliary', false, true,  8),
+      ('deadlift_aux',      'Deadlift (Aux)',       'auxiliary', false, true,  9),
+      ('ohp_aux',           'OHP (Aux)',            'auxiliary', false, true,  10),
+      // ── Back exercises ──────────────────────────────────────────────────
+      ('barbell_rows',      'Barbell Rows',         'auxiliary', false, true,  11),
+      ('dumbbell_rows',     'Dumbbell Rows',        'auxiliary', false, true,  12),
+      ('pulldowns',         'Pull-downs',           'auxiliary', false, true,  13),
     ];
     for (final s in seeds) {
       await into(lifts).insert(LiftsCompanion.insert(
-        name: s.$1,
-        displayName: s.$2,
-        category: s.$3,
-        isMainLift: Value(s.$4),
+        name:           s.$1,
+        displayName:    s.$2,
+        category:       s.$3,
+        isMainLift:     Value(s.$4),
         isAuxiliaryLift: Value(s.$5),
-        defaultOrder: Value(s.$6),
+        defaultOrder:   Value(s.$6),
       ));
     }
   }

@@ -1,65 +1,88 @@
 import '../models/rep_target_point.dart';
 
+/// Looks up rep targets from seeder data.
+///
+/// The workbook defines ONE rep count per intensity step that applies to
+/// every set including the last set.  RIR target = 0 means the lifter
+/// works to their technical limit on the last set.
+///
+/// [getRepTarget]  → reps for normal sets AND the last set (repsPerSet).
+/// [getRirTarget]  → RIR target for the last set (always 0 from seeder,
+///                   but callers should not hard-code this).
+///
+/// Fallback (no matching RepTargetPoint in the list) uses the same
+/// intensity-bracket table the workbook implies.
 class RepTargetLookupService {
-  // Normal set rep targets per week (1–21)
-  static const _normalReps = [
-    10, 10, 8, 8, 6, 6, 6,
-    5, 5, 5, 4, 4, 4,
-    3, 3, 3, 3, 3, 3,
-    2, 1,
-  ];
-
-  // Last set rep targets per week (1–21)
-  static const _lastSetReps = [
-    12, 12, 10, 10, 8, 8, 8,
-    7, 7, 7, 6, 6, 6,
-    5, 5, 5, 4, 4, 4,
-    3, 2,
-  ];
-
-  int getNormalSetReps(int weekNumber) {
-    final idx = (weekNumber - 1).clamp(0, _normalReps.length - 1);
-    return _normalReps[idx];
+  // Fallback table: intensity → reps per set
+  static int _fallbackReps(double intensity) {
+    if (intensity >= 1.00) return 1;
+    if (intensity >= 0.975) return 1;
+    if (intensity >= 0.95) return 1;
+    if (intensity >= 0.925) return 2;
+    if (intensity >= 0.90) return 2;
+    if (intensity >= 0.875) return 3;
+    if (intensity >= 0.85) return 4;
+    if (intensity >= 0.825) return 5;
+    if (intensity >= 0.80) return 6;
+    if (intensity >= 0.775) return 7;
+    if (intensity >= 0.75) return 8;
+    if (intensity >= 0.725) return 9;
+    if (intensity >= 0.70) return 10;
+    if (intensity >= 0.675) return 11;
+    if (intensity >= 0.65) return 12;
+    if (intensity >= 0.625) return 13;
+    if (intensity >= 0.60) return 14;
+    if (intensity >= 0.575) return 15;
+    if (intensity >= 0.55) return 16;
+    if (intensity >= 0.525) return 18;
+    return 20;
   }
 
-  int getLastSetReps(int weekNumber) {
-    final idx = (weekNumber - 1).clamp(0, _lastSetReps.length - 1);
-    return _lastSetReps[idx];
+  RepTargetPoint? _find(
+    String liftId,
+    double intensity,
+    List<RepTargetPoint> points,
+  ) {
+    final matches = points.where(
+      (p) => p.liftId == liftId && (p.intensity - intensity).abs() < 0.001,
+    );
+    return matches.isNotEmpty ? matches.first : null;
   }
+
+  /// Reps per set (applies to all sets including the last).
+  int getRepTarget(
+    String liftId,
+    double intensity,
+    List<RepTargetPoint> repTargetPoints,
+  ) {
+    final match = _find(liftId, intensity, repTargetPoints);
+    return match?.repsPerSet ?? _fallbackReps(intensity);
+  }
+
+  /// RIR target for the last set (0 = work to technical limit).
+  int getRirTarget(
+    String liftId,
+    double intensity,
+    List<RepTargetPoint> repTargetPoints,
+  ) {
+    final match = _find(liftId, intensity, repTargetPoints);
+    return match?.lastSetRirTarget ?? 0;
+  }
+
+  // ── Legacy compatibility shims used by workout_generation_service.dart ───
+  // These delegate to the new API so the existing service keeps compiling.
 
   int getNormalSetTarget(
     String liftId,
     double intensity,
     List<RepTargetPoint> repTargetPoints,
-  ) {
-    final match = repTargetPoints.where(
-      (p) => p.liftId == liftId && (p.intensity - intensity).abs() < 0.01,
-    );
-    if (match.isNotEmpty) return match.first.normalSetTarget;
-    if (intensity >= 0.95) return 2;
-    if (intensity >= 0.90) return 3;
-    if (intensity >= 0.85) return 4;
-    if (intensity >= 0.80) return 5;
-    if (intensity >= 0.75) return 6;
-    if (intensity >= 0.70) return 8;
-    return 10;
-  }
+  ) =>
+      getRepTarget(liftId, intensity, repTargetPoints);
 
   int getLastSetTarget(
     String liftId,
     double intensity,
     List<RepTargetPoint> repTargetPoints,
-  ) {
-    final match = repTargetPoints.where(
-      (p) => p.liftId == liftId && (p.intensity - intensity).abs() < 0.01,
-    );
-    if (match.isNotEmpty) return match.first.lastSetTarget;
-    if (intensity >= 0.95) return 3;
-    if (intensity >= 0.90) return 4;
-    if (intensity >= 0.85) return 5;
-    if (intensity >= 0.80) return 6;
-    if (intensity >= 0.75) return 8;
-    if (intensity >= 0.70) return 10;
-    return 12;
-  }
+  ) =>
+      getRepTarget(liftId, intensity, repTargetPoints);
 }

@@ -1,33 +1,36 @@
 /// Represents rep target lookup data for one lift at one intensity level.
-/// Contains both normal-set and last-set targets.
+/// Contains the reps-per-set target and the RIR target for the last set.
+///
+/// Source of truth: workbook Quick Setup tab.
+/// RIR target = 0 means "work to technical failure / technical limit".
 class RepTargetPoint {
   final String id;
   final String liftId;
-  final double intensity; // e.g., 0.70, 0.725, 0.75, etc.
-  final int normalSetTarget; // e.g., 10 reps
-  final int lastSetTarget; // e.g., 12 reps (always >= normalSetTarget)
+  final double intensity; // e.g. 0.875
+  final int repsPerSet;   // target reps for all sets (incl. last set)
+  final int lastSetRirTarget; // 0 = work to technical limit
 
   const RepTargetPoint({
     required this.id,
     required this.liftId,
     required this.intensity,
-    required this.normalSetTarget,
-    required this.lastSetTarget,
+    required this.repsPerSet,
+    required this.lastSetRirTarget,
   });
 
   RepTargetPoint copyWith({
     String? id,
     String? liftId,
     double? intensity,
-    int? normalSetTarget,
-    int? lastSetTarget,
+    int? repsPerSet,
+    int? lastSetRirTarget,
   }) {
     return RepTargetPoint(
       id: id ?? this.id,
       liftId: liftId ?? this.liftId,
       intensity: intensity ?? this.intensity,
-      normalSetTarget: normalSetTarget ?? this.normalSetTarget,
-      lastSetTarget: lastSetTarget ?? this.lastSetTarget,
+      repsPerSet: repsPerSet ?? this.repsPerSet,
+      lastSetRirTarget: lastSetRirTarget ?? this.lastSetRirTarget,
     );
   }
 
@@ -39,18 +42,19 @@ class RepTargetPoint {
           id == other.id &&
           liftId == other.liftId &&
           intensity == other.intensity &&
-          normalSetTarget == other.normalSetTarget &&
-          lastSetTarget == other.lastSetTarget;
+          repsPerSet == other.repsPerSet &&
+          lastSetRirTarget == other.lastSetRirTarget;
 
   @override
   int get hashCode =>
       id.hashCode ^
       liftId.hashCode ^
       intensity.hashCode ^
-      normalSetTarget.hashCode ^
-      lastSetTarget.hashCode;
+      repsPerSet.hashCode ^
+      lastSetRirTarget.hashCode;
 
   @override
   String toString() =>
-      'RepTargetPoint(id: $id, liftId: $liftId, intensity: $intensity, normalSetTarget: $normalSetTarget, lastSetTarget: $lastSetTarget)';
+      'RepTargetPoint(id: $id, liftId: $liftId, intensity: $intensity, '
+      'repsPerSet: $repsPerSet, lastSetRirTarget: $lastSetRirTarget)';
 }
