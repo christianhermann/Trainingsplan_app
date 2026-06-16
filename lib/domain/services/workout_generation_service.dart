@@ -1,3 +1,21 @@
+// workout_generation_service.dart
+//
+// ROLE: Pure domain service — zero DB and zero Riverpod dependencies.
+//
+// Receives pre-loaded lookup tables (intensity points, rep-target points,
+// frequency templates) and training maxes, then computes
+// [ExercisePrescription] objects for a single workout day.
+//
+// This is the math layer. It is called exclusively by [WorkoutGeneratorService]
+// (workout_generator_service.dart), which owns all DB persistence and
+// Riverpod wiring.
+//
+// Two-file architecture summary:
+//   workout_generator_service.dart  →  DB orchestrator (Riverpod provider)
+//   workout_generation_service.dart →  Pure math (this file, no side-effects)
+//
+// See docs/workbook--logic.md for the full prescription calculation spec.
+
 import '../models/enums.dart';
 import '../models/exercise_prescription.dart';
 import '../models/frequency_template.dart';
