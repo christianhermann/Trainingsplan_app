@@ -111,13 +111,15 @@ const liftCatalogue = <String, List<String>>{
     kCustomEntry,
   ],
 
-  // ── Back exercises ────────────────────────────────────────────────────────
+  // ── Back / Accessory slots ──────────────────────────────────────────────────
   'barbell_rows': [
     'Barbell Rows',
     'Pendlay Row',
     'Yates Row',
     'T-Bar Row',
     'Seal Row',
+    'Cable Row',
+    'Chest Supported Row',
     kCustomEntry,
   ],
   'dumbbell_rows': [
@@ -125,6 +127,8 @@ const liftCatalogue = <String, List<String>>{
     'Cable Row',
     'Machine Row',
     'Chest Supported Row',
+    'Meadows Row',
+    'Kroc Row',
     kCustomEntry,
   ],
   'pulldowns': [
@@ -133,6 +137,7 @@ const liftCatalogue = <String, List<String>>{
     'Chin-Ups',
     'Neutral Grip Pull-Up',
     'Assisted Pull-Up',
+    'Cable Pullover',
     kCustomEntry,
   ],
 };
@@ -140,16 +145,22 @@ const liftCatalogue = <String, List<String>>{
 /// Workbook default display name for each slot key.
 /// Used to pre-populate [SetupState.liftNames].
 const liftDefaults = <String, String>{
+  // Main
   'squat':            'Squat',
   'bench_press':      'Bankdrücken',
   'deadlift':         'Deadlift',
   'overhead_press':   'Schulterdrücken',
+  // Squat aux
   'front_squat':      'Leg Press',
   'squat_aux2':       'Wider Stance Squat',
+  // Bench aux
   'close_grip_bench': 'DB Bench',
   'bench_aux2':       'Incline DB Press',
+  // Deadlift aux
   'deadlift_aux':     'Trap Bar Deadlift',
+  // OHP aux
   'ohp_aux':          'DB Schulterdrücken',
+  // Back / Accessory
   'barbell_rows':     'Barbell Rows',
   'dumbbell_rows':    'Dumbbell Rows',
   'pulldowns':        'Pull-downs',
