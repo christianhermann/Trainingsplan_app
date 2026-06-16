@@ -19,9 +19,9 @@ class WorkoutGeneratorService {
 
   final _generationSvc = WorkoutGenerationService();
 
-  // _defaultMode removed: RoundingMode.fromString() is non-nullable so no
-  // fallback constant is needed. _defaultIncrement is still used below.
   static const _defaultIncrement = 2.5;
+
+  // ── Full-program generation ─────────────────────────────────────────────────
 
   Future<void> generateFullProgram({
     required int programId,
@@ -33,13 +33,68 @@ class WorkoutGeneratorService {
     final settingsRepo = _ref.read(settingsRepositoryProvider);
     final programRepo  = _ref.read(programRepositoryProvider);
     final workoutRepo  = _ref.read(workoutRepositoryProvider);
+    await _generateWeeks(
+      programRepo:   programRepo,
+      workoutRepo:   workoutRepo,
+      settingsRepo:  settingsRepo,
+      frequency:     frequency,
+      weeks:         weeks,
+      trainingMaxes: trainingMaxes,
+      liftDbIds:     liftDbIds,
+    );
+  }
 
-    // ── 1. Read rounding settings ───────────────────────────────────────────
+  // ── Mid-cycle regeneration ─────────────────────────────────────────────────
+
+  /// Deletes all non-completed days from [fromWeek] onward, then re-generates
+  /// them with the supplied [trainingMaxes]. Completed days are never touched.
+  Future<void> regenerateFromWeek({
+    required int programId,
+    required int fromWeek,
+    required ProgramFrequency frequency,
+    required Map<String, double> trainingMaxes,
+    required Map<String, int> liftDbIds,
+  }) async {
+    final settingsRepo = _ref.read(settingsRepositoryProvider);
+    final programRepo  = _ref.read(programRepositoryProvider);
+    final workoutRepo  = _ref.read(workoutRepositoryProvider);
+
+    await programRepo.deleteFutureDaysForProgram(programId, fromWeek);
+
+    final allWeeks    = await programRepo.getWeeksForProgram(programId);
+    final futureWeeks = allWeeks
+        .where((w) => w.weekNumber >= fromWeek)
+        .map((w) => (id: w.id, weekNumber: w.weekNumber))
+        .toList();
+
+    if (futureWeeks.isEmpty) return;
+
+    await _generateWeeks(
+      programRepo:   programRepo,
+      workoutRepo:   workoutRepo,
+      settingsRepo:  settingsRepo,
+      frequency:     frequency,
+      weeks:         futureWeeks,
+      trainingMaxes: trainingMaxes,
+      liftDbIds:     liftDbIds,
+    );
+  }
+
+  // ── Shared generation kernel ─────────────────────────────────────────────────
+
+  Future<void> _generateWeeks({
+    required ProgramRepository programRepo,
+    required WorkoutRepository workoutRepo,
+    required SettingsRepository settingsRepo,
+    required ProgramFrequency frequency,
+    required List<({int id, int weekNumber})> weeks,
+    required Map<String, double> trainingMaxes,
+    required Map<String, int> liftDbIds,
+  }) async {
     final settings          = await settingsRepo.getSettings();
     final roundingIncrement = settings?.roundingIncrement ?? _defaultIncrement;
     final roundingMode      = RoundingMode.fromString(settings?.roundingMode);
 
-    // ── 2. Pure seeder data ──────────────────────────────────────────────────
     final allTemplates  = FrequencyTemplateSeeder.generateFrequencyTemplates();
     final allIntensity  = IntensitySeeder.generateIntensityPoints();
     final allRepTargets = RepTargetSeeder.generateRepTargetPoints();
@@ -59,7 +114,6 @@ class WorkoutGeneratorService {
         .toList()
       ..sort();
 
-    // ── 3. Build domain TrainingMax map ───────────────────────────────────────
     final now   = DateTime.now();
     final tmMap = <String, TrainingMax>{
       for (final e in trainingMaxes.entries)
@@ -73,10 +127,8 @@ class WorkoutGeneratorService {
         ),
     };
 
-    // ── 4. Generate week × day ──────────────────────────────────────────────────
     for (final week in weeks) {
       for (final dayIndex in dayIndices) {
-
         final dayDbId = await programRepo.saveDay(
           WorkoutDaysCompanion.insert(
             workoutWeekId: week.id,

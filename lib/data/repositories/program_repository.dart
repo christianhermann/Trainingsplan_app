@@ -56,6 +56,42 @@ class ProgramRepository {
 
   Future<bool> updateDay(WorkoutDaysCompanion companion) =>
       _db.update(_db.workoutDays).replace(companion);
+
+  /// Deletes all non-completed workout days (and their prescriptions) for
+  /// [programId] whose week number is >= [fromWeek].
+  ///
+  /// Completed days are never touched. Used by
+  /// [WorkoutGeneratorService.regenerateFromWeek] before re-generating future
+  /// prescriptions with updated TM values.
+  Future<void> deleteFutureDaysForProgram(
+    int programId,
+    int fromWeek,
+  ) async {
+    final weeks = await getWeeksForProgram(programId);
+    final futureWeekIds = weeks
+        .where((w) => w.weekNumber >= fromWeek)
+        .map((w) => w.id)
+        .toList();
+    if (futureWeekIds.isEmpty) return;
+
+    final futureDayIds = <int>[];
+    for (final weekId in futureWeekIds) {
+      final days = await getDaysForWeek(weekId);
+      futureDayIds.addAll(
+        days.where((d) => d.status != 'completed').map((d) => d.id),
+      );
+    }
+    if (futureDayIds.isEmpty) return;
+
+    // Delete prescriptions first (Drift has no FK cascade).
+    await (_db.delete(_db.exercisePrescriptions)
+          ..where((t) => t.workoutDayId.isIn(futureDayIds)))
+        .go();
+
+    await (_db.delete(_db.workoutDays)
+          ..where((t) => t.id.isIn(futureDayIds)))
+        .go();
+  }
 }
 
 final programRepositoryProvider = Provider<ProgramRepository>((ref) {

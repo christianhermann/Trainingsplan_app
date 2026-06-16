@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../data/persistence/database.dart';
 import 'exercise_log_widget.dart';
 import 'rest_timer_widget.dart';
 import 'workout_provider.dart';
 
-// ── Screen ────────────────────────────────────────────────────────────────────
+// ── Screen ──────────────────────────────────────────────────────────────────────
 
 class TodayScreen extends ConsumerWidget {
   const TodayScreen({super.key});
@@ -30,6 +31,14 @@ class TodayScreen extends ConsumerWidget {
           loading: () => const Text('Today'),
           error:   (_, __) => const Text('Today'),
         ),
+        actions: [
+          // Edit training maxes entry point.
+          IconButton(
+            icon:    const Icon(Icons.edit_rounded),
+            tooltip: 'Edit Training Maxes',
+            onPressed: () => context.push('/edit-training-maxes'),
+          ),
+        ],
       ),
       body: workoutAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -58,7 +67,7 @@ class TodayScreen extends ConsumerWidget {
   }
 }
 
-// ── AppBar title ──────────────────────────────────────────────────────────────────
+// ── AppBar title ────────────────────────────────────────────────────────────────────
 
 class _WorkoutHeaderTitle extends StatelessWidget {
   const _WorkoutHeaderTitle({
@@ -144,9 +153,8 @@ class _WorkoutBody extends StatelessWidget {
   }
 }
 
-// ── Sealed list item types ──────────────────────────────────────────────────────
+// ── Sealed list item types ─────────────────────────────────────────────────────────
 
-// fix: add const constructor to sealed base so subclass const constructors compile
 sealed class _ListItem {
   const _ListItem();
 }
@@ -161,7 +169,7 @@ final class _CardItem extends _ListItem {
   final ExercisePrescription prescription;
 }
 
-// ── Section header ─────────────────────────────────────────────────────────────────
+// ── Section header ─────────────────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.label});
@@ -185,7 +193,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// ── Exercise card ─────────────────────────────────────────────────────────────────
+// ── Exercise card ────────────────────────────────────────────────────────────────────────
 
 class _ExerciseCard extends ConsumerWidget {
   const _ExerciseCard({
@@ -276,7 +284,7 @@ class _ExerciseCard extends ConsumerWidget {
 
               const Divider(height: 24, thickness: 0.5),
 
-              // Logging form — header already rendered above, so showHeader=false
+              // Logging form
               ExerciseLogWidget(
                 prescription: p,
                 log:          log,
@@ -302,7 +310,7 @@ class _ExerciseCard extends ConsumerWidget {
   }
 }
 
-// ── Rep-out target chip ─────────────────────────────────────────────────────────────
+// ── Rep-out target chip ─────────────────────────────────────────────────────────────────────
 
 class _RepOutChip extends StatelessWidget {
   const _RepOutChip({
@@ -348,7 +356,7 @@ class _RepOutChip extends StatelessWidget {
   }
 }
 
-// ── Complete Workout FAB ────────────────────────────────────────────────────────────
+// ── Complete Workout FAB ────────────────────────────────────────────────────────────────────
 
 class _CompleteWorkoutFab extends StatelessWidget {
   const _CompleteWorkoutFab({required this.onPressed});
@@ -371,7 +379,7 @@ class _CompleteWorkoutFab extends StatelessWidget {
   }
 }
 
-// ── Completed banner ─────────────────────────────────────────────────────────────────
+// ── Completed banner ─────────────────────────────────────────────────────────────────────────
 
 class _CompletedBanner extends StatelessWidget {
   const _CompletedBanner();
@@ -399,7 +407,7 @@ class _CompletedBanner extends StatelessWidget {
   }
 }
 
-// ── Empty / error states ─────────────────────────────────────────────────────────────
+// ── Empty / error states ───────────────────────────────────────────────────────────────────────
 
 class _NoActiveProgram extends StatelessWidget {
   const _NoActiveProgram();
