@@ -1,17 +1,6 @@
 import '../models/intensity_point.dart';
 
-abstract class IntensityLookupService {
-  double getIntensity(
-    String liftId,
-    int weekNumber,
-    List<IntensityPoint> intensityPoints,
-  );
-
-  /// Direct week-based lookup without external data (uses built-in table).
-  double getIntensityForWeek(int weekNumber);
-}
-
-class DefaultIntensityLookupService implements IntensityLookupService {
+class IntensityLookupService {
   // Workbook intensity table: week 1–21
   static const _table = [
     0.65, 0.70, 0.75, 0.75, 0.80, 0.80, 0.80,
@@ -20,13 +9,11 @@ class DefaultIntensityLookupService implements IntensityLookupService {
     0.95, 0.97,
   ];
 
-  @override
   double getIntensityForWeek(int weekNumber) {
     final idx = (weekNumber - 1).clamp(0, _table.length - 1);
     return _table[idx];
   }
 
-  @override
   double getIntensity(
     String liftId,
     int weekNumber,
