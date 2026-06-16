@@ -181,7 +181,9 @@ class _StatChip extends StatelessWidget {
       child: Column(
         children: [
           Text(label,
-              style: TextStyle(fontSize: 10, color: fg.withOpacity(0.7))),
+              style: TextStyle(
+                  fontSize: 10,
+                  color: fg.withValues(alpha: 0.7))),
           const SizedBox(height: 2),
           Text(value,
               style: TextStyle(

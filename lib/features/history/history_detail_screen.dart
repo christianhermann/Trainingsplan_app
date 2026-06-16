@@ -44,7 +44,6 @@ class _SessionDetail extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Header info
         _InfoRow(
           label: 'Completed',
           value: session.completedAt != null
@@ -188,7 +187,7 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final bg = success
-        ? Colors.greenAccent.withOpacity(0.15)
+        ? Colors.greenAccent.withValues(alpha: 0.15)
         : highlight
             ? cs.primaryContainer
             : accent
