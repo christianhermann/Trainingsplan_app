@@ -2,97 +2,115 @@
 
 ## Source structure
 
-The workbook contains a Quick Setup area, a Setup sheet, an Untouched reference sheet, and separate weekly frequency templates for 2x, 3x, 4x, 5x, and 6x training. 
-It also contains tables for intensity, normal set rep targets, last set rep targets, and progression adjustments based on performance. 
+The workbook contains a Quick Setup area, a Setup sheet, an Untouched reference sheet, and separate weekly frequency templates for 2x, 3x, 4x, 5x, and 6x training.
+It also contains tables for intensity, rep targets, last set RIR targets, and progression adjustments based on performance.
 
 ## Main lifts
 
 The core main lifts are:
 - Squat
-- Bankdruecken
+- Bench Press
 - Deadlift
-- Schulterdruecken 
+- Push Press (OHP)
 
-In Quick Setup, each main lift has a max value and a “single 8 percentage” value of 0.9 shown beside it. 
+In Quick Setup, each main lift has a max value and a "single @8 percentage" value of 0.9.
 
 ## Auxiliary lifts
 
-The workbook defines these auxiliary lift slots and defaults:
-- Squat auxiliary 1 = Leg Press
-- Squat auxiliary 2 = Wider Stance Squat
-- Bench auxiliary 1 = DB Bench
-- Bench auxiliary 2 = Incline DB Press
-- Deadlift auxiliary = Trap Bar Deadlift
-- OHP auxiliary = DB Schulterdruecken 
+The workbook defines these auxiliary lift slots:
+- Squat auxiliary 1 = Front Squat
+- Squat auxiliary 2 = Squat
+- Bench auxiliary 1 = Close Grip Bench
+- Bench auxiliary 2 = Bench Press
+- Deadlift auxiliary = Deadlift
+- OHP auxiliary = OHP
 
-These auxiliary lifts also have max values and a “single 8 percentage” value of 0.9 in Quick Setup. 
+Back exercises include Barbell rows, DB rows, and Pull-downs. All auxiliary and back lifts share the same max and "single @8 percentage" (0.9) structure as the main lifts.
 
 ## Intensity logic
 
-The workbook includes a 21-week intensity table for each lift. 
-For main lifts, the visible weekly pattern is 0.70, 0.725, 0.75, 0.725, 0.75, 0.775, 0.60, then later waves repeat and eventually reach 0.825 before returning to 0.60 in week 21. 
-For the listed auxiliary lifts, the visible weekly pattern starts at 0.65, 0.675, 0.70, 0.675, 0.70, 0.725, 0.55 and later climbs to 0.775 before returning to 0.55 in week 21. 
+The workbook includes a 21-week intensity table for each lift. Intensity is **flat across all 21 weeks** — the same percentage is prescribed every week, determined by the lift, not the week number.
+
+Verified flat intensity values per lift:
+
+| Lift | Intensity |
+|------|-----------|
+| Squat (main) | 87.5% |
+| Bench Press (main) | 87.5% |
+| Deadlift (main) | 87.5% |
+| Push Press (main) | 87.5% |
+| Front Squat | 82.5% |
+| Close Grip Bench | 82.5% |
+| Squat (aux) | 75.0% |
+| Bench Press (aux) | 75.0% |
+| Deadlift (aux) | 75.0% |
+| OHP | 75.0% |
+| Barbell rows | 75.0% |
+| DB rows | 75.0% |
+| Pull-downs | 75.0% |
 
 ## Rep targets
 
-The workbook has a “Normal set rep target” table indexed by intensity. 
-For main lifts, visible examples include 10 reps at 0.70, 9 reps at 0.725, 8 reps at 0.75, 7 reps at 0.775, 6 reps at 0.80, and 5 reps at 0.825. 
-For auxiliary lifts, visible examples include 12 reps at 0.65, 11 reps at 0.675, 10 reps at 0.70, 9 reps at 0.725, 8 reps at 0.75, and 7 reps at 0.775. 
+The workbook has a "Rep target" table indexed by intensity from 50.0% to 100.0%. All visible lifts share the same rep target curve. Selected values:
 
-The workbook also has a “Last set rep target” table. 
-For main lifts, visible examples include 12 reps at 0.70, 11 reps at 0.725, 10 reps at 0.75, 9 reps at 0.775, 8 reps at 0.80, and 6 reps at 0.825. 
-For auxiliary lifts, visible examples include 15 reps at 0.65, 13 reps at 0.675, 12 reps at 0.70, 11 reps at 0.725, 10 reps at 0.75, and 9 reps at 0.775. 
+| Intensity | Reps per set |
+|-----------|-------------|
+| 75.0% | 8 |
+| 77.5% | 7 |
+| 80.0% | 6 |
+| 82.5% | 5 |
+| 85.0% | 4 |
+| 87.5% | 3 |
 
-## Set goals
+The full lookup table runs from 20 reps at 50.0% down to 1 rep at 100.0%.
 
-The visible setup tables show 4 sets for both main and listed auxiliary lifts. 
-That set count appears repeatedly across the generated weekly prescription rows. 
+## Last set RIR target
 
-## Progression adjustments
+The workbook has a "Last set RIR target" table, also indexed by intensity. **The RIR target is 0 for every lift at every intensity level.** This means the last set of every exercise is always performed to near-failure (0 reps in reserve). There is no varying last-set RIR by week or by intensity — it is a program constant.
 
-The workbook includes adjustment columns labeled:
-- Below rep target by 2 reps
-- Below rep target by 1 rep
-- Hit rep target
-- Beat by 1 rep
-- Beat by 2 reps
-- Beat by 3 reps
-- Beat by 4 reps
-- Beat by 5 reps 
+## Set count
 
-The visible adjustment values are:
-- below by 2 = -0.05
-- below by 1 = -0.02
-- hit = 0
-- beat by 1 = 0.005
-- beat by 2 = 0.01
-- beat by 3 = 0.015
-- beat by 4 = 0.02
-- beat by 5 = 0.03 
+All lifts are prescribed 3 sets per session, visible consistently across the generated weekly rows.
 
-These should be treated as core progression rules and implemented in a dedicated calculation service. 
+## Progression logic
+
+Progression is determined by comparing the **reps achieved on the last set against the rep goal per set**. The workbook column headers explicitly state:
+
+> "1 fewer set completed **or last set below RIR target**"
+
+Since the RIR target is always 0, "last set below RIR target" means the user stopped before reaching failure on the last set. The progression outcomes and their training max deltas are:
+
+| Outcome | Condition | TM Delta |
+|---------|-----------|----------|
+| `failedSets2Plus` | 2+ fewer sets completed | −5.00% |
+| `failedSets1OrBelowRIR` | 1 fewer set completed, or last set stopped before failure (below RIR 0) | −2.00% |
+| `hitTarget` | All sets completed; last set reached failure (delta reps = 0) | 0.00% |
+| `plus1` | 1 rep above rep goal on last set | +1.00% |
+| `plus2` | 2 reps above rep goal on last set | +3.00% |
+| `plus3` | 3 reps above rep goal on last set | +5.00% |
+| `plus4` | 4 reps above rep goal on last set | +5.00% |
+| `plus5` | 5+ reps above rep goal on last set | +5.00% |
+
+Because RIR target = 0, "reps above RIR target on last set" equals **extra reps performed beyond the prescribed rep goal** on the last set. For example, if the rep goal is 8 and the user does 10, that is plus2 (+3.00%).
 
 ## Workout row fields
 
-The workbook’s repeated training rows use these fields:
-- Weight
-- Reps per normal set
-- Rep out target
-- Set goal
-- Reps on last set
-- Video
-- Notes 
-
-These fields should map directly into the app’s workout prescription and workout log models. 
+The workbook's weekly training rows expose these fields per exercise:
+- Intensity (% of training max)
+- Reps per set (from rep target lookup)
+- Last set RIR target (always 0 — program constant)
+- Sets (always 3)
+- Logged reps on last set (user input)
+- Progression outcome (derived from logged vs. target)
 
 ## Observed examples
 
-The Untouched sheet shows examples such as Squat with TM 85 producing week 1 work of 60 kg for 10 reps per normal set, a rep-out target of 12, and 4 sets. 
-It also shows Bench with TM 85 producing 60 kg, Deadlift with TM 110 producing 78 kg, and Schulterdruecken with TM 45 producing 32 kg in comparable week-1 rows. 
-For auxiliaries, examples include Leg Press TM 230 producing 150, DB Bench TM 75 producing 48, Incline DB Press TM 60 producing 40, and Trap Bar Deadlift TM 113 producing 74 in early rows. 
+The extracted workbook shows Bench Press TM 100 → 87.5 kg for 3 reps × 3 sets, Front Squat TM 125 → 102.5 kg for 5 reps × 3 sets, and Squat TM 150 → 112.5 kg for 8 reps × 3 sets. These are consistent with flat intensity and the shared rep target curve above.
 
 ## Implementation guidance
 
-The app should calculate prescriptions from normalized lookup data rather than trying to execute spreadsheet formulas at runtime.
-The workbook should be treated as the source of truth for training behavior.
-Any ambiguity should be documented explicitly instead of guessed silently.
+- Intensity is a **constant per lift** — do not vary it by week number.
+- The last set RIR target is always **0** — store as a program constant, not a lookup table.
+- Progression is driven solely by **reps logged on the last set vs. the rep goal**: delta reps = `lastSetReps − repGoal`, capped at +5 for the maximum adjustment.
+- The app should calculate prescriptions from the intensity and rep-target lookup tables and apply the TM delta after each session is logged.
+- The workbook is the source of truth; any ambiguity should be documented explicitly rather than guessed silently.
