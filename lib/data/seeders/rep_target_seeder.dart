@@ -1,137 +1,105 @@
 import '../../domain/models/rep_target_point.dart';
 
-/// Seed data for rep target lookup tables (normal set and last set targets).
+/// Seed data for the rep-target lookup table.
 ///
-/// Per workbook-logic.md:
-/// 
-/// Main lift normal set targets (visible examples):
-/// - 10 reps at 0.70
-/// - 9 reps at 0.725
-/// - 8 reps at 0.75
-/// - 7 reps at 0.775
-/// - 6 reps at 0.80
-/// - 5 reps at 0.825
+/// Source of truth: "SBS Linear Progression.xlsx", Quick Setup tab.
 ///
-/// Main lift last set targets (visible examples):
-/// - 12 reps at 0.70
-/// - 11 reps at 0.725
-/// - 10 reps at 0.75
-/// - 9 reps at 0.775
-/// - 8 reps at 0.80
-/// - 6 reps at 0.825
+/// Rep target row  (C24:W36) — reps per set at each intensity percentage.
+/// Last set RIR target row (C41:W53) — RIR target on the final set.
 ///
-/// Auxiliary lift normal set targets (visible examples):
-/// - 12 reps at 0.65
-/// - 11 reps at 0.675
-/// - 10 reps at 0.70
-/// - 9 reps at 0.725
-/// - 8 reps at 0.75
-/// - 7 reps at 0.775
+/// Both rows are identical for every lift (Squat, Bench, Deadlift,
+/// Push Press, Front Squat, Squat aux2, Close Grip Bench, Bench aux2,
+/// Deadlift aux, OHP aux, Barbell rows, DB rows, Pull-downs).
 ///
-/// Auxiliary lift last set targets (visible examples):
-/// - 15 reps at 0.65
-/// - 13 reps at 0.675
-/// - 12 reps at 0.70
-/// - 11 reps at 0.725
-/// - 10 reps at 0.75
-/// - 9 reps at 0.775
+/// The workbook contains ONE shared lookup table — there is no separate
+/// "last-set rep count".  The last-set distinction is handled by the
+/// RIR target (0 by default = work to technical limit), which is stored
+/// in [RepTargetPoint.lastSetRirTarget].
 ///
-/// TODOs:
-/// - Deload weeks use intensity 0.60 (main) and 0.55 (auxiliary).
-///   The workbook does not specify rep targets for these deload intensities.
-///   Should deload weeks have rep targets, or should rep-out logging be optional?
-///   See docs/open-questions.md #4.
-///
-/// - No intensity values between existing points (e.g., 0.755, 0.775).
-///   If rounded calculations produce intermediate values, clarify rounding behavior.
-///
-/// - Only the visible examples from the workbook are hardcoded.
-///   Other intensity values may be needed but are not documented.
+/// Intensity steps: 50.0 → 100.0 % in 2.5 % increments (21 entries).
 
 class RepTargetSeeder {
-  /// Generate all rep target lookup points for all lifts.
+  /// All rep-target lookup points (shared across every lift).
   static List<RepTargetPoint> generateRepTargetPoints() {
     final points = <RepTargetPoint>[];
 
-    // Main lifts: Squat, Bench Press, Deadlift, Overhead Press
-    points.addAll(_mainLiftRepTargets());
+    // All lift IDs that need a rep-target entry.
+    // Must match IDs used in intensity_seeder.dart and the lifts table.
+    const allLiftIds = [
+      // Main lifts
+      'squat',
+      'bench_press',
+      'deadlift',
+      'overhead_press',
+      // Auxiliary tier 1
+      'front_squat',
+      'close_grip_bench',
+      // Auxiliary tier 2
+      'squat_aux2',
+      'bench_aux2',
+      'deadlift_aux',
+      'ohp_aux',
+      'barbell_rows',
+      'dumbbell_rows',
+      'pulldowns',
+    ];
 
-    // Auxiliary lifts
-    points.addAll(_auxiliaryLiftRepTargets());
+    for (final liftId in allLiftIds) {
+      points.addAll(_repTargetsForLift(liftId));
+    }
 
     return points;
   }
 
-  /// Main lift rep targets (normal set and last set).
-  static List<RepTargetPoint> _mainLiftRepTargets() {
-    const mainLifts = ['squat', 'bench_press', 'deadlift', 'overhead_press'];
-    final points = <RepTargetPoint>[];
-
-    final targets = [
-      (intensity: 0.70, normal: 10, lastSet: 12),
-      (intensity: 0.725, normal: 9, lastSet: 11),
-      (intensity: 0.75, normal: 8, lastSet: 10),
-      (intensity: 0.775, normal: 7, lastSet: 9),
-      (intensity: 0.80, normal: 6, lastSet: 8),
-      (intensity: 0.825, normal: 5, lastSet: 6),
+  /// Builds the 21-entry rep-target list for a single lift.
+  ///
+  /// Workbook columns (Quick Setup C24:W24 / C41:W41):
+  ///   Intensity % : 50.0  52.5  55.0  57.5  60.0  62.5  65.0  67.5
+  ///                 70.0  72.5  75.0  77.5  80.0  82.5  85.0  87.5
+  ///                 90.0  92.5  95.0  97.5 100.0
+  ///   Reps/set    :   20    18    16    15    14    13    12    11
+  ///                   10     9     8     7     6     5     4     3
+  ///                    2     2     1     1     1
+  ///   Last-set RIR:    0     0     0     0     0     0     0     0
+  ///                    0     0     0     0     0     0     0     0
+  ///                    0     0     0     0     0
+  static List<RepTargetPoint> _repTargetsForLift(String liftId) {
+    // Each record: (intensityPct, repsPerSet, lastSetRirTarget)
+    // intensityPct is the workbook percentage value (e.g. 87.5).
+    // intensity stored as decimal (e.g. 0.875).
+    const entries = [
+      ( 50.0, 20, 0), // workbook: 50.0 % → 20 reps, RIR target 0
+      ( 52.5, 18, 0), // workbook: 52.5 % → 18 reps, RIR target 0
+      ( 55.0, 16, 0), // workbook: 55.0 % → 16 reps, RIR target 0
+      ( 57.5, 15, 0), // workbook: 57.5 % → 15 reps, RIR target 0
+      ( 60.0, 14, 0), // workbook: 60.0 % → 14 reps, RIR target 0
+      ( 62.5, 13, 0), // workbook: 62.5 % → 13 reps, RIR target 0
+      ( 65.0, 12, 0), // workbook: 65.0 % → 12 reps, RIR target 0
+      ( 67.5, 11, 0), // workbook: 67.5 % → 11 reps, RIR target 0
+      ( 70.0, 10, 0), // workbook: 70.0 % → 10 reps, RIR target 0
+      ( 72.5,  9, 0), // workbook: 72.5 % →  9 reps, RIR target 0
+      ( 75.0,  8, 0), // workbook: 75.0 % →  8 reps, RIR target 0
+      ( 77.5,  7, 0), // workbook: 77.5 % →  7 reps, RIR target 0
+      ( 80.0,  6, 0), // workbook: 80.0 % →  6 reps, RIR target 0
+      ( 82.5,  5, 0), // workbook: 82.5 % →  5 reps, RIR target 0
+      ( 85.0,  4, 0), // workbook: 85.0 % →  4 reps, RIR target 0
+      ( 87.5,  3, 0), // workbook: 87.5 % →  3 reps, RIR target 0
+      ( 90.0,  2, 0), // workbook: 90.0 % →  2 reps, RIR target 0
+      ( 92.5,  2, 0), // workbook: 92.5 % →  2 reps, RIR target 0
+      ( 95.0,  1, 0), // workbook: 95.0 % →  1 rep,  RIR target 0
+      ( 97.5,  1, 0), // workbook: 97.5 % →  1 rep,  RIR target 0
+      (100.0,  1, 0), // workbook: 100.0% →  1 rep,  RIR target 0
     ];
 
-    for (final lift in mainLifts) {
-      for (final target in targets) {
-        points.add(RepTargetPoint(
-          id: '${lift}_${(target.intensity * 1000).toStringAsFixed(0)}',
-          liftId: lift,
-          intensity: target.intensity,
-          normalSetTarget: target.normal,
-          lastSetTarget: target.lastSet,
-        ));
-      }
-    }
-
-    // TODO: Add deload week rep targets (intensity 0.60).
-    // The workbook does not specify targets for 0.60.
-    // Should we infer them (e.g., 12 normal, 14 last), suppress logging, or use closest match?
-    // See docs/open-questions.md #4.
-
-    return points;
-  }
-
-  /// Auxiliary lift rep targets (normal set and last set).
-  static List<RepTargetPoint> _auxiliaryLiftRepTargets() {
-    const auxiliaryLifts = [
-      'leg_press',
-      'wider_stance_squat',
-      'dumbbell_bench',
-      'incline_dumbbell_press',
-      'trap_bar_deadlift',
-      'dumbbell_overhead_press',
-    ];
-    final points = <RepTargetPoint>[];
-
-    final targets = [
-      (intensity: 0.65, normal: 12, lastSet: 15),
-      (intensity: 0.675, normal: 11, lastSet: 13),
-      (intensity: 0.70, normal: 10, lastSet: 12),
-      (intensity: 0.725, normal: 9, lastSet: 11),
-      (intensity: 0.75, normal: 8, lastSet: 10),
-      (intensity: 0.775, normal: 7, lastSet: 9),
-    ];
-
-    for (final lift in auxiliaryLifts) {
-      for (final target in targets) {
-        points.add(RepTargetPoint(
-          id: '${lift}_${(target.intensity * 1000).toStringAsFixed(0)}',
-          liftId: lift,
-          intensity: target.intensity,
-          normalSetTarget: target.normal,
-          lastSetTarget: target.lastSet,
-        ));
-      }
-    }
-
-    // TODO: Add deload week rep targets (intensity 0.55).
-    // Similar to main lifts, 0.55 is used but targets are not specified.
-
-    return points;
+    return entries.map((e) {
+      final pctKey = (e.$1 * 10).toStringAsFixed(0); // e.g. "875"
+      return RepTargetPoint(
+        id: '${liftId}_$pctKey',
+        liftId: liftId,
+        intensity: e.$1 / 100.0,
+        repsPerSet: e.$2,
+        lastSetRirTarget: e.$3,
+      );
+    }).toList();
   }
 }
