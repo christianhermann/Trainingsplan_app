@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/settings_repository.dart';
+export '../../features/settings/settings_screen.dart' show settingsProvider;
 
 // ── Timer state ─────────────────────────────────────────────────────────────
 
@@ -80,10 +81,7 @@ class RestTimerNotifier extends StateNotifier<RestTimerState> {
 /// Reads default seconds from settings; falls back to 180.
 final restTimerProvider =
     StateNotifierProvider<RestTimerNotifier, RestTimerState>((ref) {
-  final settingsAsync = ref.watch(settingsRepositoryProvider);
-  // We can't await here, so seed with 180 and update once settings are known.
   final notifier = RestTimerNotifier(180);
-  // Wire settings once available
   ref.listen(settingsProvider, (_, next) {
     next.whenData((s) {
       if (s != null) notifier.setDuration(s.restTimerSeconds);
@@ -91,10 +89,6 @@ final restTimerProvider =
   });
   return notifier;
 });
-
-// Import settingsProvider from settings_screen (avoid circular: re-export here)
-import 'package:flutter/material.dart' show BuildContext;
-export '../../features/settings/settings_screen.dart' show settingsProvider;
 
 // ── Widget ───────────────────────────────────────────────────────────────────
 
