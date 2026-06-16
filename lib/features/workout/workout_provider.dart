@@ -4,7 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/persistence/database.dart';
 import '../../data/repositories/lift_repository.dart';
 import '../../data/repositories/program_repository.dart';
+import '../../data/repositories/training_max_repository.dart';
 import '../../data/repositories/workout_repository.dart';
+import '../../data/seeders/progression_adjustment_seeder.dart';
+import '../../domain/models/exercise_log.dart' as domain;
+import '../../domain/models/exercise_prescription.dart' as domain;
+import '../../domain/services/progression_service.dart';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -24,9 +29,9 @@ class TodayWorkoutState {
   final int workoutDayId;
   final int weekNumber;
   final int dayIndex;
-  final List<ExercisePrescription> prescriptions;
-  final Map<int, ExerciseLog> logs;
-  final Map<int, Lift> lifts;
+  final List<ExercisePrescription> prescriptions; // Drift data class
+  final Map<int, ExerciseLog> logs;               // prescriptionId → Drift row
+  final Map<int, Lift> lifts;                     // liftId → Drift row
   final bool isCompleted;
 }
 
@@ -39,7 +44,7 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
   Future<TodayWorkoutState?> _load() async {
     final programRepo = ref.read(programRepositoryProvider);
     final workoutRepo = ref.read(workoutRepositoryProvider);
-    final liftRepo = ref.read(liftRepositoryProvider);
+    final liftRepo    = ref.read(liftRepositoryProvider);
 
     final program = await programRepo.getActiveProgram();
     if (program == null) return null;
@@ -61,17 +66,17 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
     );
 
     final prescriptions = await workoutRepo.getPrescriptionsForDay(todayDay.id);
-    final logs = await workoutRepo.getLogsForDay(todayDay.id);
-    final allLifts = await liftRepo.getAllLifts();
+    final logs          = await workoutRepo.getLogsForDay(todayDay.id);
+    final allLifts      = await liftRepo.getAllLifts();
 
     return TodayWorkoutState(
-      programId: program.id,
-      workoutDayId: todayDay.id,
-      weekNumber: currentWeek.weekNumber,
-      dayIndex: todayDay.dayIndex,
+      programId:     program.id,
+      workoutDayId:  todayDay.id,
+      weekNumber:    currentWeek.weekNumber,
+      dayIndex:      todayDay.dayIndex,
       prescriptions: prescriptions,
-      logs: {for (final l in logs) l.prescriptionId: l},
-      lifts: {for (final l in allLifts) l.id: l},
+      logs:   {for (final l in logs)     l.prescriptionId: l},
+      lifts:  {for (final l in allLifts) l.id:             l},
       isCompleted: todayDay.status == 'completed',
     );
   }
@@ -81,19 +86,89 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
     ref.invalidateSelf();
   }
 
-  /// Mark current day completed; auto-advance program week when all days done.
+  /// Mark current day completed, run TM progression for every logged lift,
+  /// persist updated training maxes, then auto-advance the program week
+  /// when all days in the current week are done.
   Future<void> completeWorkout() async {
     final current = state.value;
     if (current == null) return;
 
     final programRepo = ref.read(programRepositoryProvider);
+    final tmRepo      = ref.read(trainingMaxRepositoryProvider);
+    final liftRepo    = ref.read(liftRepositoryProvider);
+    final now         = DateTime.now();
 
+    // 1. Mark the day completed
     await programRepo.updateDay(WorkoutDaysCompanion(
-      id: Value(current.workoutDayId),
-      status: const Value('completed'),
-      completedAt: Value(DateTime.now()),
+      id:          Value(current.workoutDayId),
+      status:      const Value('completed'),
+      completedAt: Value(now),
     ));
 
+    // 2. Run progression for every prescription that has a completed log
+    const progressionSvc = ProgressionService();
+    final adjustments    = ProgressionAdjustmentSeeder.generateProgressionAdjustments();
+
+    for (final driftPresc in current.prescriptions) {
+      final driftLog = current.logs[driftPresc.id];
+      if (driftLog == null) continue; // not logged — skip
+
+      // Resolve the lift's string liftId from the Lift row in state
+      final liftRow = current.lifts[driftPresc.liftId];
+      if (liftRow == null) continue;
+
+      // Fetch current TM for this lift
+      final tmRow = await tmRepo.getMaxForLift(liftRow.id);
+      if (tmRow == null) continue;
+
+      // Adapt Drift rows → domain models expected by ProgressionService
+      final domainLog = domain.ExerciseLog(
+        id:             driftLog.id.toString(),
+        prescriptionId: driftLog.prescriptionId.toString(),
+        completedSets:  driftLog.completedSets,
+        repsOnLastSet:  driftLog.repsOnLastSet ?? 0,
+        notes:          driftLog.notes,
+        videoUrl:       driftLog.videoUrl,
+        completedAt:    driftLog.completedAt,
+      );
+
+      final domainPresc = domain.ExercisePrescription(
+        id:                  driftPresc.id.toString(),
+        workoutDayId:        driftPresc.workoutDayId.toString(),
+        liftId:              liftRow.name, // canonical string liftId
+        trainingMaxSnapshot: driftPresc.trainingMaxSnapshot,
+        intensity:           driftPresc.intensity,
+        workingWeight:       driftPresc.workingWeight,
+        repsPerNormalSet:    driftPresc.repsPerNormalSet,
+        repOutTarget:        driftPresc.repOutTarget,
+        setGoal:             driftPresc.setGoal,
+        displayOrder:        driftPresc.displayOrder,
+        isPrimaryBlock:      driftPresc.isPrimaryBlock,
+      );
+
+      try {
+        final result = progressionSvc.evaluate(
+          log:                domainLog,
+          prescription:       domainPresc,
+          adjustments:        adjustments,
+          currentTrainingMax: tmRow.value,
+        );
+
+        // Persist only when the value actually changes (hit → delta=0 skipped)
+        if (result.newTrainingMax != tmRow.value) {
+          await tmRepo.saveMax(TrainingMaxesCompanion.insert(
+            liftId:        liftRow.id,
+            value:         result.newTrainingMax,
+            effectiveDate: now,
+          ));
+        }
+      } on ArgumentError {
+        // No adjustment rule found — leave TM unchanged and continue
+        continue;
+      }
+    }
+
+    // 3. Auto-advance week when all days in the current week are done
     final program = await programRepo.getActiveProgram();
     if (program != null) {
       final weeks = await programRepo.getWeeksForProgram(program.id);
@@ -108,9 +183,9 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
 
       if (allDone && program.currentWeek < program.totalWeeks) {
         await programRepo.updateProgram(ProgramsCompanion(
-          id: Value(program.id),
+          id:          Value(program.id),
           currentWeek: Value(program.currentWeek + 1),
-          updatedAt: Value(DateTime.now()),
+          updatedAt:   Value(now),
         ));
       }
     }
