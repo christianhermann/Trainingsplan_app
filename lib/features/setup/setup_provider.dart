@@ -34,8 +34,7 @@ const _mainLiftKeys = [
   'overhead_press',
 ];
 
-/// Aux options per main lift (slot key → [aux1 key, aux2 key]).
-/// Deadlift and OHP have a single workbook aux; both point to the same key.
+/// Aux options per main lift (slot key → list of named options).
 const auxOptions = <String, List<({String key, String label})>>{
   'squat': [
     (key: 'front_squat',      label: 'Leg Press'),
@@ -60,18 +59,6 @@ const _defaultAux = <String, String>{
   'overhead_press': 'ohp_aux',
 };
 
-const _auxToMainTmKey = <String, String>{
-  'front_squat':      'squat',
-  'squat_aux2':       'squat',
-  'close_grip_bench': 'bench_press',
-  'bench_aux2':       'bench_press',
-  'deadlift_aux':     'deadlift',
-  'ohp_aux':          'overhead_press',
-  'barbell_rows':     'deadlift',
-  'dumbbell_rows':    'deadlift',
-  'pulldowns':        'deadlift',
-};
-
 // ── State ─────────────────────────────────────────────────────────────────────
 
 class SetupState {
@@ -87,13 +74,8 @@ class SetupState {
 
   final ProgramFrequency?   selectedFrequency;
   final Map<String, double> trainingMaxes;
-
-  /// main-lift key → chosen aux slot key.
   final Map<String, String> selectedAuxiliaries;
-
-  /// slotKey → user-chosen display name (defaults = workbook names).
   final Map<String, String> liftNames;
-
   final bool    isValid;
   final bool    isSaving;
   final String? errorMessage;
@@ -149,8 +131,6 @@ class SetupNotifier extends Notifier<SetupState> {
     state = state.copyWith(selectedAuxiliaries: updated, clearError: true);
   }
 
-  /// Override the display name shown for a given slot key.
-  /// Pass an empty string to revert to the workbook default.
   void setLiftName(String slotKey, String displayName) {
     final name = displayName.trim().isEmpty
         ? (liftDefaults[slotKey] ?? slotKey)
@@ -197,10 +177,8 @@ class SetupNotifier extends Notifier<SetupState> {
       final frequency    = state.selectedFrequency!;
       final chosenAux    = state.selectedAuxiliaries;
 
-      // ── 1. Deactivate existing programs ────────────────────────────────
       await programRepo.deactivateAll();
 
-      // ── 2. Resolve all lift DB ids ──────────────────────────────────────
       final liftDbIds = <String, int>{};
       for (final liftId in _liftNameMap.keys) {
         final lift = await liftRepo.getLiftByName(liftId);
@@ -212,11 +190,6 @@ class SetupNotifier extends Notifier<SetupState> {
         }
       }
 
-      // ── 3. Patch displayName for every slot the user may have renamed ───
-      //
-      // The stable [name] column (= slot key) never changes.
-      // Only [displayName] is updated so the rest of the app (today screen,
-      // history, etc.) immediately reflects the user's chosen label.
       for (final entry in state.liftNames.entries) {
         final slotKey = entry.key;
         final label   = entry.value;
@@ -228,7 +201,6 @@ class SetupNotifier extends Notifier<SetupState> {
         ));
       }
 
-      // ── 4. Save TMs for the 4 main lifts ───────────────────────────────
       for (final key in _mainLiftKeys) {
         final tm   = state.trainingMaxes[key]!;
         final dbId = liftDbIds[key]!;
@@ -239,7 +211,6 @@ class SetupNotifier extends Notifier<SetupState> {
         ));
       }
 
-      // ── 5. Insert Program row ───────────────────────────────────────────
       final programId = await programRepo.saveProgram(
         ProgramsCompanion.insert(
           name:      'My Program',
@@ -250,7 +221,6 @@ class SetupNotifier extends Notifier<SetupState> {
         ),
       );
 
-      // ── 6. Insert 21 WorkoutWeek rows ───────────────────────────────────
       final weeks = <({int id, int weekNumber})>[];
       for (int w = 1; w <= 21; w++) {
         final weekId = await programRepo.saveWeek(
@@ -262,7 +232,6 @@ class SetupNotifier extends Notifier<SetupState> {
         weeks.add((id: weekId, weekNumber: w));
       }
 
-      // ── 7. Build TM map for chosen aux lifts only ───────────────────────
       final fullTmMap = <String, double>{
         for (final key in _mainLiftKeys)
           key: state.trainingMaxes[key]!,
@@ -277,7 +246,6 @@ class SetupNotifier extends Notifier<SetupState> {
         fullTmMap[k] = state.trainingMaxes['deadlift']!;
       }
 
-      // ── 8. Delegate generation ──────────────────────────────────────────
       await generatorSvc.generateFullProgram(
         programId:     programId,
         frequency:     frequency,

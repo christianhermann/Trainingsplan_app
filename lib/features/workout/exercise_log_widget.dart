@@ -11,12 +11,16 @@ class ExerciseLogWidget extends StatefulWidget {
     required this.log,
     required this.liftName,
     required this.onLogUpdated,
+    this.showHeader = true,  // fix: add parameter; default true preserves existing callers
   });
 
   final ExercisePrescription prescription;
   final ExerciseLog? log;
   final String liftName;
   final ValueChanged<ExerciseLogsCompanion> onLogUpdated;
+  /// When false, the lift-name row and stat-chip row are omitted.
+  /// Use when the parent widget already renders those elements.
+  final bool showHeader;
 
   @override
   State<ExerciseLogWidget> createState() => _ExerciseLogWidgetState();
@@ -63,7 +67,7 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final p = widget.prescription;
+    final p        = widget.prescription;
     final isLogged = widget.log?.repsOnLastSet != null;
 
     return Card(
@@ -72,44 +76,50 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(widget.liftName,
-                      style: Theme.of(context).textTheme.headlineSmall),
-                ),
-                if (isLogged)
-                  const Icon(Icons.check_circle,
-                      color: Colors.greenAccent, size: 20),
-                IconButton(
-                  icon: Icon(
-                      _expanded ? Icons.expand_less : Icons.expand_more),
-                  onPressed: () =>
-                      setState(() => _expanded = !_expanded),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _StatChip(
-                    label: 'Weight',
-                    value: '${p.workingWeight.toStringAsFixed(1)} kg',
-                    highlight: true),
-                const SizedBox(width: 8),
-                _StatChip(label: 'Sets', value: '${p.setGoal}'),
-                const SizedBox(width: 8),
-                _StatChip(label: 'Reps', value: '${p.repsPerNormalSet}'),
-                const SizedBox(width: 8),
-                _StatChip(
-                    label: 'Last set ≥',
-                    value: '${p.repOutTarget}',
-                    accent: true),
-              ],
-            ),
-            const SizedBox(height: 16),
+
+            // ── Header (lift name + expand toggle) ────────────────────────────
+            if (widget.showHeader) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(widget.liftName,
+                        style: Theme.of(context).textTheme.headlineSmall),
+                  ),
+                  if (isLogged)
+                    const Icon(Icons.check_circle,
+                        color: Colors.greenAccent, size: 20),
+                  IconButton(
+                    icon: Icon(
+                        _expanded ? Icons.expand_less : Icons.expand_more),
+                    onPressed: () =>
+                        setState(() => _expanded = !_expanded),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _StatChip(
+                      label: 'Weight',
+                      value: '${p.workingWeight.toStringAsFixed(1)} kg',
+                      highlight: true),
+                  const SizedBox(width: 8),
+                  _StatChip(label: 'Sets', value: '${p.setGoal}'),
+                  const SizedBox(width: 8),
+                  _StatChip(label: 'Reps', value: '${p.repsPerNormalSet}'),
+                  const SizedBox(width: 8),
+                  _StatChip(
+                      label: 'Last set ≥',
+                      value: '${p.repOutTarget}',
+                      accent: true),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // ── Reps input (always shown) ───────────────────────────────────────
             TextField(
               controller: _repsController,
               keyboardType: TextInputType.number,
@@ -120,6 +130,8 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
               ),
               onChanged: (_) => _save(),
             ),
+
+            // ── Expandable notes / video (always available) ────────────────────
             if (_expanded) ...[
               const SizedBox(height: 12),
               TextField(

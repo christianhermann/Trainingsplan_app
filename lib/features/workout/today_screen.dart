@@ -17,14 +17,13 @@ class TodayScreen extends ConsumerWidget {
     final workoutAsync = ref.watch(todayWorkoutProvider);
 
     return Scaffold(
-      // ── AppBar: Week · Day header ──────────────────────────────────────────
       appBar: AppBar(
         centerTitle: false,
         title: workoutAsync.when(
           data: (s) => s != null
               ? _WorkoutHeaderTitle(
-                  weekNumber: s.weekNumber,
-                  dayIndex:   s.dayIndex,
+                  weekNumber:  s.weekNumber,
+                  dayIndex:    s.dayIndex,
                   isCompleted: s.isCompleted,
                 )
               : const Text('Today'),
@@ -32,18 +31,14 @@ class TodayScreen extends ConsumerWidget {
           error:   (_, __) => const Text('Today'),
         ),
       ),
-
-      // ── Body ───────────────────────────────────────────────────────────────
       body: workoutAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error:   (e, _) => _ErrorView(message: e.toString()),
-        data:    (state) {
+        data: (state) {
           if (state == null) return const _NoActiveProgram();
           return _WorkoutBody(state: state);
         },
       ),
-
-      // ── FAB: Complete Workout (hidden when already done) ───────────────────
       floatingActionButton: workoutAsync.maybeWhen(
         data: (s) {
           if (s == null || s.isCompleted) return null;
@@ -58,13 +53,12 @@ class TodayScreen extends ConsumerWidget {
   }
 
   Future<void> _onCompletePressed(BuildContext context, WidgetRef ref) async {
-    // Haptic confirmation before firing the async action.
     HapticFeedback.mediumImpact();
     await ref.read(todayWorkoutProvider.notifier).completeWorkout();
   }
 }
 
-// ── AppBar title widget ───────────────────────────────────────────────────────
+// ── AppBar title ──────────────────────────────────────────────────────────────────
 
 class _WorkoutHeaderTitle extends StatelessWidget {
   const _WorkoutHeaderTitle({
@@ -83,20 +77,19 @@ class _WorkoutHeaderTitle extends StatelessWidget {
     return Row(
       children: [
         Text(
-          'Week $weekNumber  \u00b7  Day ${dayIndex + 1}',
+          'Week $weekNumber  ·  Day ${dayIndex + 1}',
           style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
         if (isCompleted) ...[
           const SizedBox(width: 8),
-          Icon(Icons.check_circle_rounded,
-              color: cs.primary, size: 18),
+          Icon(Icons.check_circle_rounded, color: cs.primary, size: 18),
         ],
       ],
     );
   }
 }
 
-// ── Body ──────────────────────────────────────────────────────────────────────
+// ── Body ────────────────────────────────────────────────────────────────────────
 
 class _WorkoutBody extends StatelessWidget {
   const _WorkoutBody({required this.state});
@@ -104,9 +97,6 @@ class _WorkoutBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Split prescriptions into main and auxiliary groups, each sorted by
-    // displayOrder (WorkoutRepository already orders by displayOrder asc,
-    // but we re-sort here defensively).
     final main = state.prescriptions
         .where((p) => p.isPrimaryBlock)
         .toList()
@@ -117,20 +107,16 @@ class _WorkoutBody extends StatelessWidget {
         .toList()
       ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
-    // Flat list items: section headers + prescription cards.
     final items = <_ListItem>[
-      if (main.isNotEmpty)      const _SectionHeaderItem('Main'),
-      for (final p in main)     _CardItem(p),
-      if (auxiliary.isNotEmpty) const _SectionHeaderItem('Auxiliary'),
+      if (main.isNotEmpty)       const _SectionHeaderItem('Main'),
+      for (final p in main)      _CardItem(p),
+      if (auxiliary.isNotEmpty)  const _SectionHeaderItem('Auxiliary'),
       for (final p in auxiliary) _CardItem(p),
     ];
 
     return Column(
       children: [
-        // Completed banner
         if (state.isCompleted) const _CompletedBanner(),
-
-        // Scrollable exercise list
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
@@ -151,19 +137,19 @@ class _WorkoutBody extends StatelessWidget {
             },
           ),
         ),
-
-        // Rest timer docked at bottom — always visible, never covers list.
         const RestTimerWidget(),
-        // Extra space for FAB
         const SizedBox(height: 80),
       ],
     );
   }
 }
 
-// ── Sealed list item types ────────────────────────────────────────────────────
+// ── Sealed list item types ──────────────────────────────────────────────────────
 
-sealed class _ListItem {}
+// fix: add const constructor to sealed base so subclass const constructors compile
+sealed class _ListItem {
+  const _ListItem();
+}
 
 final class _SectionHeaderItem extends _ListItem {
   const _SectionHeaderItem(this.label);
@@ -175,7 +161,7 @@ final class _CardItem extends _ListItem {
   final ExercisePrescription prescription;
 }
 
-// ── Section header ────────────────────────────────────────────────────────────
+// ── Section header ─────────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.label});
@@ -189,8 +175,8 @@ class _SectionHeader extends StatelessWidget {
       child: Text(
         label.toUpperCase(),
         style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
+          fontSize:      11,
+          fontWeight:    FontWeight.w700,
           letterSpacing: 1.4,
           color: cs.onSurface.withValues(alpha: 0.45),
         ),
@@ -199,19 +185,8 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// ── Exercise card ─────────────────────────────────────────────────────────────
+// ── Exercise card ─────────────────────────────────────────────────────────────────
 
-/// One card per prescription.
-///
-/// Layout:
-///   ┌─────────────────────────────────────────┐
-///   │  Lift name                   ✓ (if done)│
-///   │                                          │
-///   │  [87.5 kg]  ·  4 sets × 3 reps          │
-///   │              Last set ≥  3               │
-///   │                                          │
-///   │  ─ ExerciseLogWidget (reps / notes / vid)│
-///   └─────────────────────────────────────────┘
 class _ExerciseCard extends ConsumerWidget {
   const _ExerciseCard({
     required this.prescription,
@@ -243,7 +218,7 @@ class _ExerciseCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
 
-              // ── Lift name row ─────────────────────────────────────────────
+              // Lift name row
               Row(
                 children: [
                   Expanded(
@@ -263,7 +238,7 @@ class _ExerciseCard extends ConsumerWidget {
 
               const SizedBox(height: 12),
 
-              // ── Working weight (large + bold) ─────────────────────────────
+              // Working weight
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -281,7 +256,7 @@ class _ExerciseCard extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
-                      '${p.setGoal} sets \u00d7 ${p.repsPerNormalSet} reps',
+                      '${p.setGoal} sets × ${p.repsPerNormalSet} reps',
                       style: tt.bodyMedium?.copyWith(
                         color: cs.onSurface.withValues(alpha: 0.7),
                       ),
@@ -292,16 +267,16 @@ class _ExerciseCard extends ConsumerWidget {
 
               const SizedBox(height: 6),
 
-              // ── Rep-out target chip ───────────────────────────────────────
+              // Rep-out target chip
               _RepOutChip(
-                target: p.repOutTarget,
+                target:   p.repOutTarget,
                 isLogged: isLogged,
-                actual: log?.repsOnLastSet,
+                actual:   log?.repsOnLastSet,
               ),
 
               const Divider(height: 24, thickness: 0.5),
 
-              // ── Logging form (reps / notes / video) ───────────────────────
+              // Logging form — header already rendered above, so showHeader=false
               ExerciseLogWidget(
                 prescription: p,
                 log:          log,
@@ -309,7 +284,6 @@ class _ExerciseCard extends ConsumerWidget {
                 onLogUpdated: (companion) => ref
                     .read(todayWorkoutProvider.notifier)
                     .updateLog(companion),
-                // Hide the lift name + stat chips — we display them above
                 showHeader: false,
               ),
             ],
@@ -328,7 +302,7 @@ class _ExerciseCard extends ConsumerWidget {
   }
 }
 
-// ── Rep-out target chip ───────────────────────────────────────────────────────
+// ── Rep-out target chip ─────────────────────────────────────────────────────────────
 
 class _RepOutChip extends StatelessWidget {
   const _RepOutChip({
@@ -344,21 +318,21 @@ class _RepOutChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    Color bg;
-    Color fg;
+    Color  bg;
+    Color  fg;
     String label;
 
     if (!isLogged) {
       bg    = cs.secondaryContainer;
       fg    = cs.onSecondaryContainer;
-      label = 'Last set target  \u2265 $target';
+      label = 'Last set target  ≥ $target';
     } else {
       final beat = (actual ?? 0) >= target;
-      bg    = beat ? cs.primaryContainer     : cs.errorContainer;
-      fg    = beat ? cs.onPrimaryContainer   : cs.onErrorContainer;
+      bg    = beat ? cs.primaryContainer   : cs.errorContainer;
+      fg    = beat ? cs.onPrimaryContainer : cs.onErrorContainer;
       label = beat
-          ? 'Last set  $actual  (target $target \u2713)'
-          : 'Last set  $actual  (target $target \u2717)';
+          ? 'Last set  $actual  (target $target ✓)'
+          : 'Last set  $actual  (target $target ✗)';
     }
 
     return Container(
@@ -374,7 +348,7 @@ class _RepOutChip extends StatelessWidget {
   }
 }
 
-// ── Complete Workout FAB ──────────────────────────────────────────────────────
+// ── Complete Workout FAB ────────────────────────────────────────────────────────────
 
 class _CompleteWorkoutFab extends StatelessWidget {
   const _CompleteWorkoutFab({required this.onPressed});
@@ -397,7 +371,7 @@ class _CompleteWorkoutFab extends StatelessWidget {
   }
 }
 
-// ── Completed banner ──────────────────────────────────────────────────────────
+// ── Completed banner ─────────────────────────────────────────────────────────────────
 
 class _CompletedBanner extends StatelessWidget {
   const _CompletedBanner();
@@ -406,9 +380,9 @@ class _CompletedBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      width: double.infinity,
+      width:   double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-      color: cs.primaryContainer.withValues(alpha: 0.6),
+      color:   cs.primaryContainer.withValues(alpha: 0.6),
       child: Row(
         children: [
           Icon(Icons.check_circle_rounded, color: cs.primary, size: 18),
@@ -416,7 +390,8 @@ class _CompletedBanner extends StatelessWidget {
           Text(
             'Workout completed — great work!',
             style: TextStyle(
-                fontWeight: FontWeight.w600, color: cs.onPrimaryContainer),
+                fontWeight: FontWeight.w600,
+                color: cs.onPrimaryContainer),
           ),
         ],
       ),
@@ -424,7 +399,7 @@ class _CompletedBanner extends StatelessWidget {
   }
 }
 
-// ── Empty / error states ──────────────────────────────────────────────────────
+// ── Empty / error states ─────────────────────────────────────────────────────────────
 
 class _NoActiveProgram extends StatelessWidget {
   const _NoActiveProgram();

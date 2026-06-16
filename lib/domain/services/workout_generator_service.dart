@@ -13,32 +13,15 @@ import '../models/training_max.dart';
 import 'workout_generation_service.dart';
 
 /// Orchestrates full 21-week program generation.
-///
-/// Responsibilities (I/O layer only):
-///   • Read rounding settings (increment + mode) from AppSettingsTable via
-///     [SettingsRepository]. Defaults: increment=2.5 kg, mode=nearest.
-///   • Generate pure seeder data (no DB reads for lookup tables).
-///   • Persist one [WorkoutDay] row per week × day.
-///   • Delegate pure prescription building to [WorkoutGenerationService],
-///     which calls [RoundingService.round] with the typed [RoundingMode] enum.
-///   • Batch-persist [ExercisePrescription] rows.
 class WorkoutGeneratorService {
   WorkoutGeneratorService(this._ref);
   final Ref _ref;
 
   final _generationSvc = WorkoutGenerationService();
 
-  // Default rounding settings (barbell standard).
   static const _defaultIncrement = 2.5;
   static const _defaultMode      = RoundingMode.nearest;
 
-  /// Generate and persist all 21 weeks × N days for [programId].
-  ///
-  ///   [programId]     — DB id of the already-saved Program row.
-  ///   [frequency]     — [ProgramFrequency] enum (2x–6x).
-  ///   [weeks]         — pre-saved WorkoutWeek rows ({id, weekNumber}).
-  ///   [trainingMaxes] — liftId → TM value for all 13 canonical lift IDs.
-  ///   [liftDbIds]     — liftId → DB integer id from the lifts table.
   Future<void> generateFullProgram({
     required int programId,
     required ProgramFrequency frequency,
@@ -50,16 +33,13 @@ class WorkoutGeneratorService {
     final programRepo  = _ref.read(programRepositoryProvider);
     final workoutRepo  = _ref.read(workoutRepositoryProvider);
 
-    // ── 1. Read rounding settings from AppSettingsTable ──────────────────────
-    // getSettings() returns AppSettingsTableData (Drift-generated).
-    // roundingMode is stored as a String; parse it to RoundingMode enum here
-    // so the pure generation layer never sees raw strings.
-    final settings = await settingsRepo.getSettings();
+    // ── 1. Read rounding settings ───────────────────────────────────────────────
+    final settings          = await settingsRepo.getSettings();
     final roundingIncrement = settings?.roundingIncrement ?? _defaultIncrement;
-    final roundingMode =
-        RoundingMode.fromString(settings?.roundingMode) ?? _defaultMode;
+    // fix: RoundingMode.fromString() is non-nullable; drop the dead ?? fallback
+    final roundingMode      = RoundingMode.fromString(settings?.roundingMode);
 
-    // ── 2. Pure seeder data (no DB reads) ─────────────────────────────────
+    // ── 2. Pure seeder data ───────────────────────────────────────────────────────
     final allTemplates  = FrequencyTemplateSeeder.generateFrequencyTemplates();
     final allIntensity  = IntensitySeeder.generateIntensityPoints();
     final allRepTargets = RepTargetSeeder.generateRepTargetPoints();
@@ -79,7 +59,7 @@ class WorkoutGeneratorService {
         .toList()
       ..sort();
 
-    // ── 3. Build domain TrainingMax map ─────────────────────────────────────
+    // ── 3. Build domain TrainingMax map ─────────────────────────────────────────
     final now   = DateTime.now();
     final tmMap = <String, TrainingMax>{
       for (final e in trainingMaxes.entries)
@@ -93,11 +73,10 @@ class WorkoutGeneratorService {
         ),
     };
 
-    // ── 4. Generate week × day ─────────────────────────────────────────────
+    // ── 4. Generate week × day ────────────────────────────────────────────────────
     for (final week in weeks) {
       for (final dayIndex in dayIndices) {
 
-        // a. Persist WorkoutDay row.
         final dayDbId = await programRepo.saveDay(
           WorkoutDaysCompanion.insert(
             workoutWeekId: week.id,
@@ -106,8 +85,6 @@ class WorkoutGeneratorService {
           ),
         );
 
-        // b. Build prescriptions (pure — no DB).
-        //    roundingMode is now a typed RoundingMode enum; no string passed.
         final prescriptions = _generationSvc.generateDayPrescriptions(
           workoutDayId:       dayDbId.toString(),
           frequency:          frequency,
@@ -118,10 +95,9 @@ class WorkoutGeneratorService {
           intensityPoints:    allIntensity,
           repTargetPoints:    allRepTargets,
           roundingIncrement:  roundingIncrement,
-          roundingMode:       roundingMode,        // ← typed enum
+          roundingMode:       roundingMode,
         );
 
-        // c. Resolve liftId → DB integer id, build Companions.
         final companions = prescriptions.map((p) {
           final dbLiftId = liftDbIds[p.liftId];
           if (dbLiftId == null) {
@@ -143,7 +119,6 @@ class WorkoutGeneratorService {
           );
         }).toList();
 
-        // d. Batch-persist prescriptions.
         await workoutRepo.savePrescriptions(companions);
       }
     }
