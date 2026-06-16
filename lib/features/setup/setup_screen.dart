@@ -6,7 +6,7 @@ import '../../data/catalogue/lift_catalogue.dart';
 import '../../domain/models/enums.dart';
 import 'setup_provider.dart';
 
-// ── Screen ────────────────────────────────────────────────────────────────────
+// ── Screen ───────────────────────────────────────────────────────────────────
 
 class SetupScreen extends ConsumerWidget {
   const SetupScreen({super.key});
@@ -36,7 +36,7 @@ class SetupScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 32),
 
-              // ── Frequency ──────────────────────────────────────────────────
+              // ── Frequency ────────────────────────────────────────────────────────
               Text('Training Frequency',
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
@@ -46,18 +46,20 @@ class SetupScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 32),
 
-              // ── Training maxes ─────────────────────────────────────────────
+              // ── Training maxes ───────────────────────────────────────────────
               Text('Training Maxes',
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
               _TrainingMaxesInput(
-                maxes:        s.trainingMaxes,
-                liftNames:    s.liftNames,
-                onMaxUpdated: notifier.updateTrainingMax,
+                mainMaxes:        s.trainingMaxes,
+                auxMaxes:         s.auxTrainingMaxes,
+                liftNames:        s.liftNames,
+                onMainMaxUpdated: notifier.updateTrainingMax,
+                onAuxMaxUpdated:  notifier.updateAuxTrainingMax,
               ),
               const SizedBox(height: 32),
 
-              // ── Lift selection ─────────────────────────────────────────────
+              // ── Lift selection ───────────────────────────────────────────────
               Text('Lift Selection',
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 4),
@@ -76,7 +78,7 @@ class SetupScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
 
-              // ── Error banner ───────────────────────────────────────────────
+              // ── Error banner ──────────────────────────────────────────────────
               if (s.errorMessage != null) ...[
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -91,7 +93,7 @@ class SetupScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
               ],
 
-              // ── Action buttons ─────────────────────────────────────────────
+              // ── Action buttons ───────────────────────────────────────────────
               Row(
                 children: [
                   Expanded(
@@ -132,7 +134,7 @@ class SetupScreen extends ConsumerWidget {
   }
 }
 
-// ── Lift selection section ────────────────────────────────────────────────────
+// ── Lift selection section ────────────────────────────────────────────────
 
 class _LiftSelectionSection extends StatelessWidget {
   const _LiftSelectionSection({
@@ -187,7 +189,7 @@ class _LiftSelectionSection extends StatelessWidget {
   }
 }
 
-// ── Group card ───────────────────────────────────────────────────────────────────
+// ── Group card ────────────────────────────────────────────────────────────────────
 
 class _LiftGroupCard extends StatelessWidget {
   const _LiftGroupCard({
@@ -346,7 +348,7 @@ class _LiftSlotTile extends StatelessWidget {
   }
 }
 
-// ── Lift picker bottom sheet ───────────────────────────────────────────────────
+// ── Lift picker bottom sheet ─────────────────────────────────────────────────
 
 class _LiftPickerSheet extends StatefulWidget {
   const _LiftPickerSheet({
@@ -474,7 +476,7 @@ class _LiftPickerSheetState extends State<_LiftPickerSheet> {
   }
 }
 
-// ── Custom entry tile ───────────────────────────────────────────────────────────
+// ── Custom entry tile ────────────────────────────────────────────────────────────
 
 class _CustomEntryTile extends StatelessWidget {
   const _CustomEntryTile({
@@ -623,17 +625,21 @@ class _FrequencyButton extends StatelessWidget {
   }
 }
 
-// ── Training maxes ────────────────────────────────────────────────────────────────
+// ── Training maxes (main + collapsible auxiliary) ──────────────────────────
 
 class _TrainingMaxesInput extends StatelessWidget {
   const _TrainingMaxesInput({
-    required this.maxes,
+    required this.mainMaxes,
+    required this.auxMaxes,
     required this.liftNames,
-    required this.onMaxUpdated,
+    required this.onMainMaxUpdated,
+    required this.onAuxMaxUpdated,
   });
-  final Map<String, double>           maxes;
+  final Map<String, double>           mainMaxes;
+  final Map<String, double>           auxMaxes;
   final Map<String, String>           liftNames;
-  final void Function(String, double) onMaxUpdated;
+  final void Function(String, double) onMainMaxUpdated;
+  final void Function(String, double) onAuxMaxUpdated;
 
   static const _mainSlots = [
     'squat', 'bench_press', 'deadlift', 'overhead_press',
@@ -642,22 +648,205 @@ class _TrainingMaxesInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ─ Main lifts ─────────────────────────────────────────────────────────────
         for (final slotKey in _mainSlots) ...[
           _MaxInput(
             liftId:      slotKey,
             displayName: liftNames[slotKey] ??
                          liftDefaults[slotKey] ??
                          slotKey,
-            currentMax:  maxes[slotKey],
-            onChanged:   (v) => onMaxUpdated(slotKey, v),
+            currentMax:  mainMaxes[slotKey],
+            hintText:    'Enter max in kg',
+            onChanged:   (v) => onMainMaxUpdated(slotKey, v),
           ),
           const SizedBox(height: 12),
         ],
+
+        const SizedBox(height: 8),
+
+        // ─ Auxiliary lifts (collapsible) ─────────────────────────────────────────
+        _AuxiliaryMaxesSection(
+          mainMaxes:       mainMaxes,
+          auxMaxes:        auxMaxes,
+          liftNames:       liftNames,
+          onAuxMaxUpdated: onAuxMaxUpdated,
+        ),
       ],
     );
   }
 }
+
+// ── Auxiliary maxes collapsible section ──────────────────────────────────────
+
+/// Shows one [_MaxInput] per auxiliary slot, grouped under an [ExpansionTile].
+/// Hint text shows the computed default (mainMax × 0.9) when no value is entered.
+class _AuxiliaryMaxesSection extends StatelessWidget {
+  const _AuxiliaryMaxesSection({
+    required this.mainMaxes,
+    required this.auxMaxes,
+    required this.liftNames,
+    required this.onAuxMaxUpdated,
+  });
+  final Map<String, double>           mainMaxes;
+  final Map<String, double>           auxMaxes;
+  final Map<String, String>           liftNames;
+  final void Function(String, double) onAuxMaxUpdated;
+
+  // Pairs of (auxSlotKey, parentMainKey) in display order.
+  static const _auxRows = [
+    (slot: 'front_squat',      parent: 'squat'),
+    (slot: 'squat_aux2',       parent: 'squat'),
+    (slot: 'close_grip_bench', parent: 'bench_press'),
+    (slot: 'bench_aux2',       parent: 'bench_press'),
+    (slot: 'deadlift_aux',     parent: 'deadlift'),
+    (slot: 'ohp_aux',          parent: 'overhead_press'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Card(
+      color:  const Color(0xFF1E1E1E),
+      shape:  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: EdgeInsets.zero,
+      child: ExpansionTile(
+        tilePadding:     const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        shape:           const Border(),
+        collapsedShape:  const Border(),
+        title: Text(
+          'Auxiliary Maxes',
+          style: Theme.of(context)
+              .textTheme
+              .bodyLarge
+              ?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(
+          'Optional — defaults to main max × 0.9',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.45)),
+        ),
+        trailing: Icon(
+          Icons.tune,
+          size: 18,
+          color: cs.onSurface.withValues(alpha: 0.4),
+        ),
+        children: [
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          for (final row in _auxRows) ...[
+            _AuxMaxRow(
+              slotKey:    row.slot,
+              parentKey:  row.parent,
+              displayName: liftNames[row.slot] ??
+                           liftDefaults[row.slot] ??
+                           row.slot,
+              parentMainMax: mainMaxes[row.parent],
+              currentAuxMax: auxMaxes[row.slot],
+              onChanged:     (v) => onAuxMaxUpdated(row.slot, v),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One row inside the auxiliary maxes section.
+/// Shows the lift name and a compact text field.
+/// When empty the hint text shows the computed default (e.g. “90.0 kg (auto)”).
+class _AuxMaxRow extends StatefulWidget {
+  const _AuxMaxRow({
+    required this.slotKey,
+    required this.parentKey,
+    required this.displayName,
+    required this.parentMainMax,
+    required this.currentAuxMax,
+    required this.onChanged,
+  });
+  final String       slotKey;
+  final String       parentKey;
+  final String       displayName;
+  final double?      parentMainMax;
+  final double?      currentAuxMax;
+  final void Function(double) onChanged;
+
+  @override
+  State<_AuxMaxRow> createState() => _AuxMaxRowState();
+}
+
+class _AuxMaxRowState extends State<_AuxMaxRow> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(
+      text: widget.currentAuxMax != null
+          ? widget.currentAuxMax.toString()
+          : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  String get _autoHint {
+    final parent = widget.parentMainMax;
+    if (parent == null || parent <= 0) return 'auto (main × 0.9)';
+    final computed = (parent * 0.9 * 10).round() / 10;
+    return '$computed kg (auto)';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          flex: 5,
+          child: Text(
+            widget.displayName,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 4,
+          child: TextField(
+            controller:   _ctrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: InputDecoration(
+              isDense:     true,
+              hintText:    _autoHint,
+              hintStyle:   Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.35)),
+              suffixText:  'kg',
+              suffixStyle: Theme.of(context).textTheme.bodySmall,
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 10),
+            ),
+            onChanged: (v) {
+              final parsed = double.tryParse(v);
+              widget.onChanged(parsed ?? 0.0);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Max input (main lifts) ──────────────────────────────────────────────────────
 
 class _MaxInput extends StatefulWidget {
   const _MaxInput({
@@ -665,10 +854,12 @@ class _MaxInput extends StatefulWidget {
     required this.displayName,
     required this.currentMax,
     required this.onChanged,
+    this.hintText = 'Enter max in kg',
   });
   final String  liftId;
   final String  displayName;
   final double? currentMax;
+  final String  hintText;
   final void Function(double) onChanged;
 
   @override
@@ -705,7 +896,7 @@ class _MaxInputState extends State<_MaxInput> {
           controller:   _ctrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
-            hintText:    'Enter max in kg',
+            hintText:    widget.hintText,
             suffixText:  'kg',
             suffixStyle: Theme.of(context).textTheme.bodyMedium,
           ),
