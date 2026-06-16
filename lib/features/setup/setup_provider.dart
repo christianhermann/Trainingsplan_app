@@ -27,7 +27,7 @@ const _frequencyDays = {
   ProgramFrequency.six: 6,
 };
 
-// ── State ─────────────────────────────────────────────────────────────────
+// ── State ───────────────────────────────────────────────────────────────────
 
 class SetupState {
   const SetupState({
@@ -61,7 +61,7 @@ class SetupState {
       );
 }
 
-// ── Notifier ─────────────────────────────────────────────────────────────────
+// ── Notifier ───────────────────────────────────────────────────────────────────
 
 class SetupNotifier extends StateNotifier<SetupState> {
   SetupNotifier(this._ref) : super(const SetupState());
@@ -112,8 +112,8 @@ class SetupNotifier extends StateNotifier<SetupState> {
       final tmRepo = _ref.read(trainingMaxRepositoryProvider);
       final programRepo = _ref.read(programRepositoryProvider);
       final workoutRepo = _ref.read(workoutRepositoryProvider);
-      final intensitySvc = DefaultIntensityLookupService();
-      final repSvc = DefaultRepTargetLookupService();
+      final intensitySvc = IntensityLookupService();
+      final repSvc = RepTargetLookupService();
       final now = DateTime.now();
 
       await programRepo.deactivateAll();
