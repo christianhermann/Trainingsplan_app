@@ -40,3 +40,44 @@ enum ProgressOutcome {
   plus4,
   plus5,
 }
+
+/// How a working weight is rounded to the nearest plate-friendly value.
+///
+/// Stored in [AppSettingsTable] as a lowercase string.
+/// Use [RoundingMode.fromString] to parse the DB value.
+enum RoundingMode {
+  /// Round to the nearest multiple of the increment (0.5 goes up).
+  nearest,
+
+  /// Always round down to the nearest multiple of the increment.
+  floor,
+
+  /// Always round up to the nearest multiple of the increment.
+  ceiling;
+
+  /// Parse a stored string to a [RoundingMode].
+  ///
+  /// Accepted values (case-insensitive):
+  ///   'nearest', 'round'           → [nearest]
+  ///   'floor'                      → [floor]
+  ///   'ceiling', 'ceil'            → [ceiling]
+  ///
+  /// Unknown values fall back to [nearest].
+  static RoundingMode fromString(String? value) {
+    switch (value?.toLowerCase().trim()) {
+      case 'nearest':
+      case 'round':
+        return RoundingMode.nearest;
+      case 'floor':
+        return RoundingMode.floor;
+      case 'ceiling':
+      case 'ceil':
+        return RoundingMode.ceiling;
+      default:
+        return RoundingMode.nearest;
+    }
+  }
+
+  /// The canonical string persisted to the DB.
+  String get storedValue => name; // 'nearest', 'floor', 'ceiling'
+}

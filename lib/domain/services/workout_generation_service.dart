@@ -15,6 +15,7 @@ import 'rounding_service.dart';
 /// builds [ExercisePrescription] objects for a single workout day.
 ///
 /// setGoal is always 4 (workbook constant).
+/// workingWeight = round(trainingMax × intensity, mode, increment).
 class WorkoutGenerationService {
   final IntensityLookupService _intensityLookup;
   final RepTargetLookupService _repTargetLookup;
@@ -26,15 +27,16 @@ class WorkoutGenerationService {
     RoundingService? rounding,
   })  : _intensityLookup = intensityLookup ?? IntensityLookupService(),
         _repTargetLookup = repTargetLookup ?? RepTargetLookupService(),
-        _rounding = rounding ?? RoundingService();
+        _rounding = rounding ?? const RoundingService();
 
   /// Generate prescriptions for one day.
   ///
-  /// [frequency] must be a [ProgramFrequency] enum value — compared directly
-  /// against [FrequencyTemplate.frequency] (no string conversion).
+  /// [frequency]    — [ProgramFrequency] enum; compared directly against
+  ///                  [FrequencyTemplate.frequency].
+  /// [roundingMode] — [RoundingMode] enum (parsed from AppSettings by caller).
   List<ExercisePrescription> generateDayPrescriptions({
     required String workoutDayId,
-    required ProgramFrequency frequency,   // ← enum, not String
+    required ProgramFrequency frequency,
     required int dayIndex,
     required int weekNumber,
     required List<FrequencyTemplate> frequencyTemplates,
@@ -42,9 +44,8 @@ class WorkoutGenerationService {
     required List<IntensityPoint> intensityPoints,
     required List<RepTargetPoint> repTargetPoints,
     required double roundingIncrement,
-    required String roundingMode,
+    required RoundingMode roundingMode,       // ← typed enum
   }) {
-    // Filter templates for this frequency + day, sorted by display order.
     final dayTemplates = frequencyTemplates
         .where((t) => t.frequency == frequency && t.dayIndex == dayIndex)
         .toList()
@@ -80,7 +81,7 @@ class WorkoutGenerationService {
     required List<IntensityPoint> intensityPoints,
     required List<RepTargetPoint> repTargetPoints,
     required double roundingIncrement,
-    required String roundingMode,
+    required RoundingMode roundingMode,
   }) {
     final trainingMax = trainingMaxes[template.liftId];
     if (trainingMax == null) {
@@ -95,10 +96,11 @@ class WorkoutGenerationService {
       intensityPoints,
     );
 
-    final workingWeight = _rounding.roundWeight(
+    // workingWeight = round(TM × intensity) using typed RoundingMode enum.
+    final workingWeight = _rounding.round(
       trainingMax.value * intensity,
-      roundingIncrement,
       roundingMode,
+      roundingIncrement,
     );
 
     final repsPerNormalSet = _repTargetLookup.getRepTarget(
@@ -107,11 +109,8 @@ class WorkoutGenerationService {
       repTargetPoints,
     );
 
-    // repOutTarget == repsPerNormalSet: workbook has one rep count per intensity;
-    // RIR=0 on the last set means "work to technical limit", not a different
-    // rep number.
-    final repOutTarget = repsPerNormalSet;
-
+    // repOutTarget == repsPerNormalSet: workbook has one rep count per
+    // intensity step; RIR=0 on the last set means work to technical limit.
     return ExercisePrescription(
       id:                  '${workoutDayId}_${template.liftId}_w$weekNumber',
       workoutDayId:        workoutDayId,
@@ -120,15 +119,15 @@ class WorkoutGenerationService {
       intensity:           intensity,
       workingWeight:       workingWeight,
       repsPerNormalSet:    repsPerNormalSet,
-      repOutTarget:        repOutTarget,
-      setGoal:             4, // workbook constant
+      repOutTarget:        repsPerNormalSet,
+      setGoal:             4,
       displayOrder:        template.defaultOrder,
       isPrimaryBlock:      template.blockType.toLowerCase() == 'main',
     );
   }
 
   /// Convenience method used by tests — generates a single prescription
-  /// without needing a FrequencyTemplate.
+  /// without requiring a FrequencyTemplate.
   ExercisePrescription generateSinglePrescription({
     required String workoutDayId,
     required String liftId,
@@ -139,12 +138,12 @@ class WorkoutGenerationService {
     required double intensity,
     required List<RepTargetPoint> repTargetPoints,
     required double roundingIncrement,
-    required String roundingMode,
+    required RoundingMode roundingMode,
   }) {
-    final workingWeight = _rounding.roundWeight(
+    final workingWeight = _rounding.round(
       trainingMax.value * intensity,
-      roundingIncrement,
       roundingMode,
+      roundingIncrement,
     );
     final repsPerNormalSet =
         _repTargetLookup.getRepTarget(liftId, intensity, repTargetPoints);
