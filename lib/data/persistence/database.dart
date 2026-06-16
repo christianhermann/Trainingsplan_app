@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 part 'database.g.dart';
 
-// ── Tables ────────────────────────────────────────────────────────────────────
+// ── Tables ────────────────────────────────────────────────────────────────────────
 
 class Lifts extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -117,7 +117,7 @@ class AppSettingsTable extends Table {
       boolean().withDefault(const Constant(true))();
 }
 
-// ── Database ──────────────────────────────────────────────────────────────────
+// ── Database ────────────────────────────────────────────────────────────────────────
 
 @DriftDatabase(tables: [
   Lifts,
@@ -146,40 +146,41 @@ class AppDatabase extends _$AppDatabase {
 
   /// Seeds the canonical 13 workbook lifts.
   ///
-  /// The [name] column is the stable liftId key used throughout the app
-  /// (matches frequency_template_seeder / intensity_seeder / rep_target_seeder).
-  /// The [displayName] column is the human-readable label shown in the UI.
+  /// The [name] column is the stable liftId key used throughout the app.
+  /// The [displayName] column uses the workbook's official labels.
   ///
   /// Schema:
   ///   (name, displayName, category, isMainLift, isAuxiliaryLift, defaultOrder)
   Future<void> _seedLifts() async {
     const seeds = [
-      // ── Main lifts ──────────────────────────────────────────────────────
-      ('squat',             'Squat',              'main',      true,  false, 1),
-      ('bench_press',       'Bench Press',         'main',      true,  false, 2),
-      ('deadlift',          'Deadlift',            'main',      true,  false, 3),
-      ('overhead_press',    'Overhead Press',      'main',      true,  false, 4),
-      // ── Auxiliary tier 1 ───────────────────────────────────────────────
-      ('front_squat',       'Front Squat',         'auxiliary', false, true,  5),
-      ('close_grip_bench',  'Close Grip Bench',    'auxiliary', false, true,  6),
-      // ── Auxiliary tier 2 ───────────────────────────────────────────────
-      ('squat_aux2',        'Squat (Aux 2)',        'auxiliary', false, true,  7),
-      ('bench_aux2',        'Bench Press (Aux 2)', 'auxiliary', false, true,  8),
-      ('deadlift_aux',      'Deadlift (Aux)',       'auxiliary', false, true,  9),
-      ('ohp_aux',           'OHP (Aux)',            'auxiliary', false, true,  10),
+      // ── Main lifts ─────────────────────────────────────────────────────
+      ('squat',             'Squat',                  'main',      true,  false, 1),
+      ('bench_press',       'Bankdr\u00FCcken',        'main',      true,  false, 2),
+      ('deadlift',          'Deadlift',               'main',      true,  false, 3),
+      ('overhead_press',    'Schulterdr\u00FCcken',    'main',      true,  false, 4),
+      // ── Squat auxiliaries ─────────────────────────────────────────────
+      ('front_squat',       'Leg Press',              'auxiliary', false, true,  5),
+      ('squat_aux2',        'Wider Stance Squat',     'auxiliary', false, true,  6),
+      // ── Bench auxiliaries ─────────────────────────────────────────────
+      ('close_grip_bench',  'DB Bench',               'auxiliary', false, true,  7),
+      ('bench_aux2',        'Incline DB Press',       'auxiliary', false, true,  8),
+      // ── Deadlift auxiliaries ─────────────────────────────────────────
+      ('deadlift_aux',      'Trap Bar Deadlift',      'auxiliary', false, true,  9),
+      // ── OHP auxiliaries ───────────────────────────────────────────────
+      ('ohp_aux',           'DB Schulterdruecken',    'auxiliary', false, true,  10),
       // ── Back exercises ──────────────────────────────────────────────────
-      ('barbell_rows',      'Barbell Rows',         'auxiliary', false, true,  11),
-      ('dumbbell_rows',     'Dumbbell Rows',        'auxiliary', false, true,  12),
-      ('pulldowns',         'Pull-downs',           'auxiliary', false, true,  13),
+      ('barbell_rows',      'Barbell Rows',           'auxiliary', false, true,  11),
+      ('dumbbell_rows',     'Dumbbell Rows',          'auxiliary', false, true,  12),
+      ('pulldowns',         'Pull-downs',             'auxiliary', false, true,  13),
     ];
     for (final s in seeds) {
       await into(lifts).insert(LiftsCompanion.insert(
-        name:           s.$1,
-        displayName:    s.$2,
-        category:       s.$3,
-        isMainLift:     Value(s.$4),
+        name:            s.$1,
+        displayName:     s.$2,
+        category:        s.$3,
+        isMainLift:      Value(s.$4),
         isAuxiliaryLift: Value(s.$5),
-        defaultOrder:   Value(s.$6),
+        defaultOrder:    Value(s.$6),
       ));
     }
   }
@@ -191,13 +192,13 @@ class AppDatabase extends _$AppDatabase {
 
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    final dir = await getApplicationDocumentsDirectory();
+    final dir  = await getApplicationDocumentsDirectory();
     final file = File(p.join(dir.path, 'trainingsplan.db'));
     return NativeDatabase(file);
   });
 }
 
-// ── Provider ──────────────────────────────────────────────────────────────────
+// ── Provider ────────────────────────────────────────────────────────────────────────
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();

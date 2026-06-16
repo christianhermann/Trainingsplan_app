@@ -8,29 +8,24 @@ import '../../data/repositories/training_max_repository.dart';
 import '../../domain/models/enums.dart';
 import '../../domain/services/workout_generator_service.dart';
 
-/// Maps domain liftId keys → [name] column values in the lifts table.
-/// Must exactly match what _seedLifts() inserts in database.dart.
+// ── Lift key maps (stable name column values) ──────────────────────────────────
+
 const _liftNameMap = <String, String>{
-  // Main lifts
   'squat':            'squat',
   'bench_press':      'bench_press',
   'deadlift':         'deadlift',
   'overhead_press':   'overhead_press',
-  // Auxiliary tier 1
   'front_squat':      'front_squat',
   'close_grip_bench': 'close_grip_bench',
-  // Auxiliary tier 2
   'squat_aux2':       'squat_aux2',
   'bench_aux2':       'bench_aux2',
   'deadlift_aux':     'deadlift_aux',
   'ohp_aux':          'ohp_aux',
-  // Back exercises
   'barbell_rows':     'barbell_rows',
   'dumbbell_rows':    'dumbbell_rows',
   'pulldowns':        'pulldowns',
 };
 
-/// Lift IDs for which the user must supply a training max on the setup screen.
 const _mainLiftKeys = [
   'squat',
   'bench_press',
@@ -38,7 +33,40 @@ const _mainLiftKeys = [
   'overhead_press',
 ];
 
-/// Aux lifts inherit TM from their parent main lift (same movement pattern).
+/// For each main lift: which aux lift DB name-keys are valid choices,
+/// paired with the workbook display label.
+///
+/// Order: [0] = aux 1 (workbook default), [1] = aux 2.
+/// Deadlift and OHP have only one real workbook option — both slots are
+/// provided so the UI remains consistent (single option selectable only).
+const auxOptions = <String, List<({String key, String label})>>{
+  'squat': [
+    (key: 'front_squat',      label: 'Leg Press'),
+    (key: 'squat_aux2',       label: 'Wider Stance Squat'),
+  ],
+  'bench_press': [
+    (key: 'close_grip_bench', label: 'DB Bench'),
+    (key: 'bench_aux2',       label: 'Incline DB Press'),
+  ],
+  'deadlift': [
+    (key: 'deadlift_aux',     label: 'Trap Bar Deadlift'),
+    (key: 'deadlift_aux',     label: 'Trap Bar Deadlift'), // single option
+  ],
+  'overhead_press': [
+    (key: 'ohp_aux',          label: 'DB Schulterdruecken'),
+    (key: 'ohp_aux',          label: 'DB Schulterdruecken'), // single option
+  ],
+};
+
+/// Default workbook aux selections: main-lift key → chosen aux lift key.
+const _defaultAux = <String, String>{
+  'squat':          'front_squat',       // Leg Press
+  'bench_press':    'close_grip_bench',  // DB Bench
+  'deadlift':       'deadlift_aux',      // Trap Bar Deadlift
+  'overhead_press': 'ohp_aux',           // DB Schulterdruecken
+};
+
+/// Maps every aux lift key → its parent main lift key (for TM inheritance).
 const _auxToMainTmKey = <String, String>{
   'front_squat':      'squat',
   'squat_aux2':       'squat',
@@ -46,43 +74,55 @@ const _auxToMainTmKey = <String, String>{
   'bench_aux2':       'bench_press',
   'deadlift_aux':     'deadlift',
   'ohp_aux':          'overhead_press',
-  // Back exercises share the deadlift TM as the closest pattern
   'barbell_rows':     'deadlift',
   'dumbbell_rows':    'deadlift',
   'pulldowns':        'deadlift',
 };
 
+// ── State ─────────────────────────────────────────────────────────────────────────
+
 class SetupState {
   const SetupState({
     this.selectedFrequency,
-    this.trainingMaxes = const {},
-    this.isValid   = false,
-    this.isSaving  = false,
+    this.trainingMaxes       = const {},
+    this.selectedAuxiliaries = _defaultAux,
+    this.isValid             = false,
+    this.isSaving            = false,
     this.errorMessage,
   });
 
   final ProgramFrequency?   selectedFrequency;
   final Map<String, double> trainingMaxes;
-  final bool                isValid;
-  final bool                isSaving;
-  final String?             errorMessage;
+
+  /// main-lift key → chosen aux lift key (one per main lift).
+  final Map<String, String> selectedAuxiliaries;
+
+  final bool    isValid;
+  final bool    isSaving;
+  final String? errorMessage;
 
   SetupState copyWith({
     ProgramFrequency?    selectedFrequency,
     Map<String, double>? trainingMaxes,
+    Map<String, String>? selectedAuxiliaries,
     bool?                isValid,
     bool?                isSaving,
     String?              errorMessage,
     bool                 clearError = false,
   }) =>
       SetupState(
-        selectedFrequency: selectedFrequency ?? this.selectedFrequency,
-        trainingMaxes:     trainingMaxes     ?? this.trainingMaxes,
-        isValid:           isValid           ?? this.isValid,
-        isSaving:          isSaving          ?? this.isSaving,
-        errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+        selectedFrequency:   selectedFrequency   ?? this.selectedFrequency,
+        trainingMaxes:       trainingMaxes       ?? this.trainingMaxes,
+        selectedAuxiliaries: selectedAuxiliaries ?? this.selectedAuxiliaries,
+        isValid:             isValid             ?? this.isValid,
+        isSaving:            isSaving            ?? this.isSaving,
+        errorMessage: clearError
+            ? null
+            : (errorMessage ?? this.errorMessage),
       );
 }
+
+// ── Notifier ────────────────────────────────────────────────────────────────────────
 
 class SetupNotifier extends Notifier<SetupState> {
   @override
@@ -104,8 +144,18 @@ class SetupNotifier extends Notifier<SetupState> {
     _validate();
   }
 
+  /// Set the chosen auxiliary lift key for a given main lift.
+  void selectAuxiliary(String mainLiftKey, String auxLiftKey) {
+    final updated = Map<String, String>.from(state.selectedAuxiliaries);
+    updated[mainLiftKey] = auxLiftKey;
+    state = state.copyWith(selectedAuxiliaries: updated, clearError: true);
+  }
+
   void clearAllMaxes() {
-    state = state.copyWith(trainingMaxes: {});
+    state = state.copyWith(
+      trainingMaxes:       {},
+      selectedAuxiliaries: _defaultAux,
+    );
     _validate();
   }
 
@@ -135,29 +185,27 @@ class SetupNotifier extends Notifier<SetupState> {
       final generatorSvc = ref.read(workoutGeneratorServiceProvider);
       final now          = DateTime.now();
       final frequency    = state.selectedFrequency!;
+      final chosenAux    = state.selectedAuxiliaries;
 
-      // ── 1. Deactivate existing programs ─────────────────────────────────
+      // ── 1. Deactivate existing programs ────────────────────────────────────────
       await programRepo.deactivateAll();
 
-      // ── 2. Resolve all 13 lift DB ids ───────────────────────────────────
-      // liftNameMap key == DB name column, so lookup by name = key itself.
+      // ── 2. Resolve all lift DB ids ────────────────────────────────────────────────
       final liftDbIds = <String, int>{};
       for (final liftId in _liftNameMap.keys) {
         final lift = await liftRepo.getLiftByName(liftId);
         if (lift != null) liftDbIds[liftId] = lift.id;
       }
-
-      // Verify all 4 main lifts resolved (aux lifts may not exist on old DBs).
       for (final key in _mainLiftKeys) {
         if (!liftDbIds.containsKey(key)) {
           throw Exception('Lift not found in DB: $key');
         }
       }
 
-      // ── 3. Save training maxes for the 4 main lifts ─────────────────────
+      // ── 3. Save TMs for the 4 main lifts ────────────────────────────────────────────
       for (final key in _mainLiftKeys) {
-        final tm    = state.trainingMaxes[key]!;
-        final dbId  = liftDbIds[key]!;
+        final tm   = state.trainingMaxes[key]!;
+        final dbId = liftDbIds[key]!;
         await tmRepo.saveMax(TrainingMaxesCompanion.insert(
           liftId:        dbId,
           value:         tm,
@@ -165,7 +213,7 @@ class SetupNotifier extends Notifier<SetupState> {
         ));
       }
 
-      // ── 4. Insert Program row (active = true) ────────────────────────────
+      // ── 4. Insert Program row ───────────────────────────────────────────────────────
       final programId = await programRepo.saveProgram(
         ProgramsCompanion.insert(
           name:      'My Program',
@@ -176,7 +224,7 @@ class SetupNotifier extends Notifier<SetupState> {
         ),
       );
 
-      // ── 5. Insert 21 WorkoutWeek rows ────────────────────────────────────
+      // ── 5. Insert 21 WorkoutWeek rows ───────────────────────────────────────────────
       final weeks = <({int id, int weekNumber})>[];
       for (int w = 1; w <= 21; w++) {
         final weekId = await programRepo.saveWeek(
@@ -188,16 +236,29 @@ class SetupNotifier extends Notifier<SetupState> {
         weeks.add((id: weekId, weekNumber: w));
       }
 
-      // ── 6. Derive full TM map: aux lifts inherit their main lift TM ──────
+      // ── 6. Build TM map for chosen aux lifts only ──────────────────────────────────
+      //
+      // Only the selected aux lift per main lift gets a TM entry and will
+      // be passed to the generator. Unselected aux options are skipped.
       final fullTmMap = <String, double>{
-        // Main lifts
-        for (final key in _mainLiftKeys) key: state.trainingMaxes[key]!,
-        // Aux lifts
-        for (final e in _auxToMainTmKey.entries)
-          e.key: state.trainingMaxes[e.value]!,
+        for (final key in _mainLiftKeys)
+          key: state.trainingMaxes[key]!,
       };
 
-      // ── 7. Delegate all WorkoutDay + ExercisePrescription generation ─────
+      for (final mainKey in _mainLiftKeys) {
+        final auxKey = chosenAux[mainKey];
+        if (auxKey == null) continue;
+        final parentTm = state.trainingMaxes[mainKey]!;
+        fullTmMap[auxKey] = parentTm;
+      }
+
+      // Back exercises always included (inherit deadlift TM).
+      const backKeys = ['barbell_rows', 'dumbbell_rows', 'pulldowns'];
+      for (final k in backKeys) {
+        fullTmMap[k] = state.trainingMaxes['deadlift']!;
+      }
+
+      // ── 7. Delegate generation ─────────────────────────────────────────────────────────
       await generatorSvc.generateFullProgram(
         programId:     programId,
         frequency:     frequency,
@@ -209,7 +270,7 @@ class SetupNotifier extends Notifier<SetupState> {
       state = state.copyWith(isSaving: false);
     } catch (e) {
       state = state.copyWith(
-        isSaving: false,
+        isSaving:     false,
         errorMessage: 'Failed to save: $e',
       );
     }
