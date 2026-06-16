@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/program_repository.dart';
-import '../../data/repositories/workout_repository.dart';
 
-final _historyProvider = FutureProvider<List<WorkoutDay>>((ref) async {
+final _historyProvider =
+    FutureProvider<List<WorkoutDayData>>((ref) async {
   final programRepo = ref.read(programRepositoryProvider);
   final programs = await programRepo.getAllPrograms();
-  final days = <WorkoutDay>[];
+  final days = <WorkoutDayData>[];
   for (final p in programs) {
     final weeks = await programRepo.getWeeksForProgram(p.id);
     for (final w in weeks) {
@@ -15,8 +15,11 @@ final _historyProvider = FutureProvider<List<WorkoutDay>>((ref) async {
       days.addAll(d.where((day) => day.status == 'completed'));
     }
   }
-  days.sort((a, b) =>
-      (b.completedAt ?? DateTime(0)).compareTo(a.completedAt ?? DateTime(0)));
+  days.sort((a, b) {
+    final aDate = a.completedAt ?? DateTime(0);
+    final bDate = b.completedAt ?? DateTime(0);
+    return bDate.compareTo(aDate);
+  });
   return days;
 });
 

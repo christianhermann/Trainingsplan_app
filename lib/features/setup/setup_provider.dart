@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/persistence/database.dart';
@@ -26,8 +25,6 @@ const _frequencyDays = {
   ProgramFrequency.five: 5,
   ProgramFrequency.six: 6,
 };
-
-// ── State ────────────────────────────────────────────────────────────────────
 
 class SetupState {
   const SetupState({
@@ -60,8 +57,6 @@ class SetupState {
         errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       );
 }
-
-// ── Notifier ──────────────────────────────────────────────────────────────────
 
 class SetupNotifier extends Notifier<SetupState> {
   @override
@@ -106,7 +101,6 @@ class SetupNotifier extends Notifier<SetupState> {
   Future<void> saveAndGenerate() async {
     if (!state.isValid) return;
     state = state.copyWith(isSaving: true, clearError: true);
-
     try {
       final liftRepo = ref.read(liftRepositoryProvider);
       final tmRepo = ref.read(trainingMaxRepositoryProvider);
@@ -136,31 +130,35 @@ class SetupNotifier extends Notifier<SetupState> {
       }
 
       final frequency = state.selectedFrequency!;
-      final programId = await programRepo.saveProgram(ProgramsCompanion.insert(
-        name: 'My Program',
-        frequency: frequency.name,
-        createdAt: now,
-        updatedAt: now,
-      ));
+      final programId = await programRepo.saveProgram(
+        ProgramsCompanion.insert(
+          name: 'My Program',
+          frequency: frequency.name,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
 
       final daysPerWeek = _frequencyDays[frequency] ?? 3;
 
       for (int week = 1; week <= 21; week++) {
-        final weekId = await programRepo.saveWeek(WorkoutWeeksCompanion.insert(
-          programId: programId,
-          weekNumber: week,
-        ));
-
+        final weekId = await programRepo.saveWeek(
+          WorkoutWeeksCompanion.insert(
+            programId: programId,
+            weekNumber: week,
+          ),
+        );
         final intensity = intensitySvc.getIntensityForWeek(week);
         final repsNormal = repSvc.getNormalSetReps(week);
         final repsLast = repSvc.getLastSetReps(week);
 
         for (int day = 0; day < daysPerWeek; day++) {
-          final dayId = await programRepo.saveDay(WorkoutDaysCompanion.insert(
-            workoutWeekId: weekId,
-            dayIndex: day,
-          ));
-
+          final dayId = await programRepo.saveDay(
+            WorkoutDaysCompanion.insert(
+              workoutWeekId: weekId,
+              dayIndex: day,
+            ),
+          );
           final liftKey = _mainLiftKeys[day % _mainLiftKeys.length];
           final dbLiftId = liftIdMap[liftKey]!;
           final tm = state.trainingMaxes[liftKey]!;
@@ -180,13 +178,10 @@ class SetupNotifier extends Notifier<SetupState> {
           );
         }
       }
-
       state = state.copyWith(isSaving: false);
     } catch (e) {
       state = state.copyWith(
-        isSaving: false,
-        errorMessage: 'Failed to save: $e',
-      );
+          isSaving: false, errorMessage: 'Failed to save: $e');
     }
   }
 }

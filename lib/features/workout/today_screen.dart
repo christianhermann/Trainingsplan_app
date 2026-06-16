@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/repositories/workout_repository.dart';
+import 'exercise_log_widget.dart';
 import 'rest_timer_widget.dart';
 import 'workout_provider.dart';
-import 'exercise_log_widget.dart';
 
 class TodayScreen extends ConsumerWidget {
   const TodayScreen({super.key});
@@ -17,7 +16,9 @@ class TodayScreen extends ConsumerWidget {
       appBar: AppBar(
         title: workoutAsync.when(
           data: (s) => Text(
-            s != null ? 'Week ${s.weekNumber} · Day ${s.dayIndex + 1}' : 'Today',
+            s != null
+                ? 'Week ${s.weekNumber} \u00b7 Day ${s.dayIndex + 1}'
+                : 'Today',
           ),
           loading: () => const Text('Today'),
           error: (_, __) => const Text('Today'),
@@ -48,13 +49,15 @@ class TodayScreen extends ConsumerWidget {
               data: (state) {
                 if (state == null) {
                   return const Center(
-                    child: Text('No active program. Go to Setup to start.'),
+                    child: Text(
+                        'No active program. Go to Setup to start.'),
                   );
                 }
                 return ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: state.prescriptions.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: 12),
                   itemBuilder: (context, i) {
                     final prescription = state.prescriptions[i];
                     final log = state.logs[prescription.id];
@@ -63,12 +66,9 @@ class TodayScreen extends ConsumerWidget {
                       prescription: prescription,
                       log: log,
                       liftName: lift?.displayName ?? 'Exercise',
-                      onLogSaved: (companion) => ref
+                      onLogUpdated: (companion) => ref
                           .read(todayWorkoutProvider.notifier)
-                          .updateLog(
-                            WorkoutRepositoryCompanionHelper
-                                .exerciseLogsCompanionFrom(companion),
-                          ),
+                          .updateLog(companion),
                     );
                   },
                 );
