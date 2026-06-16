@@ -8,6 +8,7 @@ class NavShell extends StatelessWidget {
   static const _tabs = [
     _TabItem(label: 'Today', icon: Icons.fitness_center, path: '/today'),
     _TabItem(label: 'History', icon: Icons.history, path: '/history'),
+    _TabItem(label: 'Setup', icon: Icons.tune, path: '/setup'),
     _TabItem(label: 'Settings', icon: Icons.settings, path: '/settings'),
   ];
 
