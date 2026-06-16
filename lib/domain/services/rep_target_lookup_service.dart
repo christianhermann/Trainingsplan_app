@@ -35,7 +35,7 @@ class RepTargetLookupService {
     final match = repTargetPoints.where(
       (p) => p.liftId == liftId && (p.intensity - intensity).abs() < 0.01,
     );
-    if (match.isNotEmpty) return match.first.normalSetReps;
+    if (match.isNotEmpty) return match.first.normalSetTarget;
     if (intensity >= 0.95) return 2;
     if (intensity >= 0.90) return 3;
     if (intensity >= 0.85) return 4;
@@ -53,7 +53,7 @@ class RepTargetLookupService {
     final match = repTargetPoints.where(
       (p) => p.liftId == liftId && (p.intensity - intensity).abs() < 0.01,
     );
-    if (match.isNotEmpty) return match.first.lastSetReps;
+    if (match.isNotEmpty) return match.first.lastSetTarget;
     if (intensity >= 0.95) return 3;
     if (intensity >= 0.90) return 4;
     if (intensity >= 0.85) return 5;
