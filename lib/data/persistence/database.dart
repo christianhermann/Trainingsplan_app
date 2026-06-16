@@ -6,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../seeders/progression_adjustment_seeder.dart';
+
 part 'database.g.dart';
 
-// ── Tables ────────────────────────────────────────────────────────────────────────
+// ── Tables ────────────────────────────────────────────────────────────────────────────────
 
 class Lifts extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -117,7 +119,35 @@ class AppSettingsTable extends Table {
       boolean().withDefault(const Constant(true))();
 }
 
-// ── Database ────────────────────────────────────────────────────────────────────────
+/// Stores the progression adjustment rules that map a [ProgressOutcome]
+/// to a training-max delta percentage.
+///
+/// Seeded on first install and on schema upgrade from v1 → v2.
+/// Rows can be overridden at runtime without code changes.
+class ProgressAdjustments extends Table {
+  /// Stable key: e.g. 'squat_plus1', 'all_lifts_belowBy2'.
+  TextColumn get id => text()();
+
+  /// Lift name key (matches [Lifts.name]) or 'all_lifts' for the global fallback.
+  TextColumn get liftId => text()();
+
+  /// Serialised [ProgressOutcome] enum name, e.g. 'plus1', 'belowBy2'.
+  TextColumn get outcome => text()();
+
+  /// Fractional adjustment applied to the training max.
+  /// E.g. 0.010 means newTM = currentTM × 1.010.
+  RealColumn get delta => real()();
+
+  BoolColumn get appliesToCycle =>
+      boolean().withDefault(const Constant(true))();
+  BoolColumn get appliesToTrainingMax =>
+      boolean().withDefault(const Constant(true))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+// ── Database ──────────────────────────────────────────────────────────────────────────────────
 
 @DriftDatabase(tables: [
   Lifts,
@@ -128,12 +158,13 @@ class AppSettingsTable extends Table {
   ExercisePrescriptions,
   ExerciseLogs,
   AppSettingsTable,
+  ProgressAdjustments,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -141,6 +172,14 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
           await _seedLifts();
           await _seedDefaultSettings();
+          await _seedProgressionAdjustments();
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            // v1 → v2: add the progression_adjustments table and populate it.
+            await m.createTable(progressAdjustments);
+            await _seedProgressionAdjustments();
+          }
         },
       );
 
@@ -148,27 +187,24 @@ class AppDatabase extends _$AppDatabase {
   ///
   /// The [name] column is the stable liftId key used throughout the app.
   /// The [displayName] column uses the workbook's official labels.
-  ///
-  /// Schema:
-  ///   (name, displayName, category, isMainLift, isAuxiliaryLift, defaultOrder)
   Future<void> _seedLifts() async {
     const seeds = [
-      // ── Main lifts ─────────────────────────────────────────────────────
+      // ── Main lifts ───────────────────────────────────────────────────
       ('squat',             'Squat',                  'main',      true,  false, 1),
       ('bench_press',       'Bankdr\u00FCcken',        'main',      true,  false, 2),
       ('deadlift',          'Deadlift',               'main',      true,  false, 3),
       ('overhead_press',    'Schulterdr\u00FCcken',    'main',      true,  false, 4),
-      // ── Squat auxiliaries ─────────────────────────────────────────────
+      // ── Squat auxiliaries ───────────────────────────────────────────
       ('front_squat',       'Leg Press',              'auxiliary', false, true,  5),
       ('squat_aux2',        'Wider Stance Squat',     'auxiliary', false, true,  6),
-      // ── Bench auxiliaries ─────────────────────────────────────────────
+      // ── Bench auxiliaries ───────────────────────────────────────────
       ('close_grip_bench',  'DB Bench',               'auxiliary', false, true,  7),
       ('bench_aux2',        'Incline DB Press',       'auxiliary', false, true,  8),
-      // ── Deadlift auxiliaries ─────────────────────────────────────────
+      // ── Deadlift auxiliaries ────────────────────────────────────────
       ('deadlift_aux',      'Trap Bar Deadlift',      'auxiliary', false, true,  9),
-      // ── OHP auxiliaries ───────────────────────────────────────────────
+      // ── OHP auxiliaries ───────────────────────────────────────────
       ('ohp_aux',           'DB Schulterdruecken',    'auxiliary', false, true,  10),
-      // ── Back exercises ──────────────────────────────────────────────────
+      // ── Back exercises ───────────────────────────────────────────
       ('barbell_rows',      'Barbell Rows',           'auxiliary', false, true,  11),
       ('dumbbell_rows',     'Dumbbell Rows',          'auxiliary', false, true,  12),
       ('pulldowns',         'Pull-downs',             'auxiliary', false, true,  13),
@@ -188,6 +224,26 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _seedDefaultSettings() async {
     await into(appSettingsTable).insert(const AppSettingsTableCompanion());
   }
+
+  /// Seeds all progression adjustment rows from the canonical seeder.
+  ///
+  /// Uses [insertOnConflictUpdate] so re-running on an existing database
+  /// (e.g. after a future delta correction) is idempotent.
+  Future<void> _seedProgressionAdjustments() async {
+    final rows = ProgressionAdjustmentSeeder.generateProgressionAdjustments();
+    for (final r in rows) {
+      await into(progressAdjustments).insertOnConflictUpdate(
+        ProgressAdjustmentsCompanion.insert(
+          id:                  r.id,
+          liftId:              r.liftId,
+          outcome:             r.outcome.name,
+          delta:               r.delta,
+          appliesToCycle:      Value(r.appliesToCycle),
+          appliesToTrainingMax: Value(r.appliesToTrainingMax),
+        ),
+      );
+    }
+  }
 }
 
 LazyDatabase _openConnection() {
@@ -198,7 +254,7 @@ LazyDatabase _openConnection() {
   });
 }
 
-// ── Provider ────────────────────────────────────────────────────────────────────────
+// ── Provider ──────────────────────────────────────────────────────────────────────────────────
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();

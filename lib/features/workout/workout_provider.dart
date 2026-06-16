@@ -4,14 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/persistence/database.dart';
 import '../../data/repositories/lift_repository.dart';
 import '../../data/repositories/program_repository.dart';
+import '../../data/repositories/progression_adjustment_repository.dart';
 import '../../data/repositories/training_max_repository.dart';
 import '../../data/repositories/workout_repository.dart';
-import '../../data/seeders/progression_adjustment_seeder.dart';
 import '../../domain/models/exercise_log.dart' as domain;
 import '../../domain/models/exercise_prescription.dart' as domain;
 import '../../domain/services/progression_service.dart';
 
-// ── State ─────────────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────────────────
 
 class TodayWorkoutState {
   const TodayWorkoutState({
@@ -35,7 +35,7 @@ class TodayWorkoutState {
   final bool isCompleted;
 }
 
-// ── Notifier ──────────────────────────────────────────────────────────────────
+// ── Notifier ───────────────────────────────────────────────────────────────────────────
 
 class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
   @override
@@ -90,10 +90,10 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
     final current = state.value;
     if (current == null) return;
 
-    final programRepo = ref.read(programRepositoryProvider);
-    final tmRepo      = ref.read(trainingMaxRepositoryProvider);
-    // fix: removed unused liftRepo — lifts are resolved from current.lifts
-    final now         = DateTime.now();
+    final programRepo    = ref.read(programRepositoryProvider);
+    final tmRepo         = ref.read(trainingMaxRepositoryProvider);
+    final adjustmentRepo = ref.read(progressionAdjustmentRepositoryProvider);
+    final now            = DateTime.now();
 
     // 1. Mark the day completed
     await programRepo.updateDay(WorkoutDaysCompanion(
@@ -104,7 +104,7 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
 
     // 2. Run progression for every prescription that has a completed log
     const progressionSvc = ProgressionService();
-    final adjustments    = ProgressionAdjustmentSeeder.generateProgressionAdjustments();
+    final adjustments    = await adjustmentRepo.getAdjustments();
 
     for (final driftPresc in current.prescriptions) {
       final driftLog = current.logs[driftPresc.id];
