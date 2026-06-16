@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../persistence/database.dart';
@@ -9,22 +8,18 @@ class LiftRepository {
 
   Future<List<Lift>> getAllLifts() => _db.select(_db.lifts).get();
 
-  Future<List<Lift>> getMainLifts() =>
-      (_db.select(_db.lifts)..where((t) => t.isMainLift.equals(true))).get();
-
-  Future<List<Lift>> getAuxiliaryLifts() =>
-      (_db.select(_db.lifts)..where((t) => t.isAuxiliaryLift.equals(true)))
-          .get();
-
   Future<Lift?> getLiftByName(String name) =>
-      (_db.select(_db.lifts)..where((t) => t.name.equals(name)))
+      (_db.select(_db.lifts)..where((l) => l.name.equals(name)))
           .getSingleOrNull();
 
-  Future<Lift> getLiftById(int id) =>
-      (_db.select(_db.lifts)..where((t) => t.id.equals(id))).getSingle();
-
-  Future<int> upsertLift(LiftsCompanion companion) =>
+  Future<int> saveLift(LiftsCompanion companion) =>
       _db.into(_db.lifts).insertOnConflictUpdate(companion);
+
+  Future<bool> updateLift(LiftsCompanion companion) =>
+      _db.update(_db.lifts).replace(companion);
+
+  Future<int> deleteLift(int id) =>
+      (_db.delete(_db.lifts)..where((l) => l.id.equals(id))).go();
 }
 
 final liftRepositoryProvider = Provider<LiftRepository>((ref) {

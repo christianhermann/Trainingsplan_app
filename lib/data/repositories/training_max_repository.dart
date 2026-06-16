@@ -1,5 +1,5 @@
-import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/drift.dart';
 
 import '../persistence/database.dart';
 
@@ -7,17 +7,17 @@ class TrainingMaxRepository {
   TrainingMaxRepository(this._db);
   final AppDatabase _db;
 
-  Future<List<TrainingMax>> getAllMaxes() =>
+  Future<List<TrainingMaxe>> getAllMaxes() =>
       _db.select(_db.trainingMaxes).get();
 
-  Future<TrainingMax?> getMaxForLift(int liftId) =>
+  Future<TrainingMaxe?> getMaxForLift(int liftId) =>
       (_db.select(_db.trainingMaxes)
             ..where((t) => t.liftId.equals(liftId))
             ..orderBy([(t) => OrderingTerm.desc(t.effectiveDate)])
             ..limit(1))
           .getSingleOrNull();
 
-  Future<List<TrainingMax>> getMaxHistoryForLift(int liftId) =>
+  Future<List<TrainingMaxe>> getMaxHistoryForLift(int liftId) =>
       (_db.select(_db.trainingMaxes)
             ..where((t) => t.liftId.equals(liftId))
             ..orderBy([(t) => OrderingTerm.desc(t.effectiveDate)]))

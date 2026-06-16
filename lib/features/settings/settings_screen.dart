@@ -24,8 +24,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsTableData?> {
     ref.invalidateSelf();
   }
 
-  /// Deletes all program/week/day/prescription/log data. Settings are kept.
-  Future<void> resetAllData(Ref ref) async {
+  Future<void> resetAllData() async {
     final db = ref.read(databaseProvider);
     await db.delete(db.exerciseLogs).go();
     await db.delete(db.exercisePrescriptions).go();
@@ -128,23 +127,25 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Weight unit'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: ['kg', 'lbs'].map((unit) {
-            return RadioListTile<String>(
-              title: Text(unit.toUpperCase()),
-              value: unit,
-              groupValue: settings.weightUnit,
-              onChanged: (v) {
-                if (v != null) {
-                  ref.read(settingsProvider.notifier).saveSettings(
-                        AppSettingsTableCompanion(weightUnit: Value(v)),
-                      );
-                  Navigator.pop(context);
-                }
-              },
-            );
-          }).toList(),
+        content: RadioGroup<String>(
+          groupValue: settings.weightUnit,
+          onChanged: (v) {
+            if (v != null) {
+              ref.read(settingsProvider.notifier).saveSettings(
+                    AppSettingsTableCompanion(weightUnit: Value(v)),
+                  );
+              Navigator.pop(context);
+            }
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: ['kg', 'lbs']
+                .map((unit) => RadioListTile<String>(
+                      title: Text(unit.toUpperCase()),
+                      value: unit,
+                    ))
+                .toList(),
+          ),
         ),
       ),
     );
@@ -156,24 +157,25 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Rounding increment'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [1.0, 1.25, 2.5, 5.0].map((inc) {
-            return RadioListTile<double>(
-              title: Text('$inc kg'),
-              value: inc,
-              groupValue: settings.roundingIncrement,
-              onChanged: (v) {
-                if (v != null) {
-                  ref.read(settingsProvider.notifier).saveSettings(
-                        AppSettingsTableCompanion(
-                            roundingIncrement: Value(v)),
-                      );
-                  Navigator.pop(context);
-                }
-              },
-            );
-          }).toList(),
+        content: RadioGroup<double>(
+          groupValue: settings.roundingIncrement,
+          onChanged: (v) {
+            if (v != null) {
+              ref.read(settingsProvider.notifier).saveSettings(
+                    AppSettingsTableCompanion(roundingIncrement: Value(v)),
+                  );
+              Navigator.pop(context);
+            }
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [1.0, 1.25, 2.5, 5.0]
+                .map((inc) => RadioListTile<double>(
+                      title: Text('$inc kg'),
+                      value: inc,
+                    ))
+                .toList(),
+          ),
         ),
       ),
     );
@@ -185,25 +187,26 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Rest timer default'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [60, 90, 120, 150, 180, 240, 300].map((s) {
-            return RadioListTile<int>(
-              title:
-                  Text('${s ~/ 60}m${s % 60 > 0 ? ' ${s % 60}s' : ''}'),
-              value: s,
-              groupValue: settings.restTimerSeconds,
-              onChanged: (v) {
-                if (v != null) {
-                  ref.read(settingsProvider.notifier).saveSettings(
-                        AppSettingsTableCompanion(
-                            restTimerSeconds: Value(v)),
-                      );
-                  Navigator.pop(context);
-                }
-              },
-            );
-          }).toList(),
+        content: RadioGroup<int>(
+          groupValue: settings.restTimerSeconds,
+          onChanged: (v) {
+            if (v != null) {
+              ref.read(settingsProvider.notifier).saveSettings(
+                    AppSettingsTableCompanion(restTimerSeconds: Value(v)),
+                  );
+              Navigator.pop(context);
+            }
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [60, 90, 120, 150, 180, 240, 300]
+                .map((s) => RadioListTile<int>(
+                      title: Text(
+                          '${s ~/ 60}m${s % 60 > 0 ? ' ${s % 60}s' : ''}'),
+                      value: s,
+                    ))
+                .toList(),
+          ),
         ),
       ),
     );
@@ -224,9 +227,7 @@ class SettingsScreen extends ConsumerWidget {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              await ref
-                  .read(settingsProvider.notifier)
-                  .resetAllData(ref as Ref);
+              await ref.read(settingsProvider.notifier).resetAllData();
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
