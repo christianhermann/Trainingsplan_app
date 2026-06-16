@@ -19,8 +19,9 @@ class WorkoutGeneratorService {
 
   final _generationSvc = WorkoutGenerationService();
 
+  // _defaultMode removed: RoundingMode.fromString() is non-nullable so no
+  // fallback constant is needed. _defaultIncrement is still used below.
   static const _defaultIncrement = 2.5;
-  static const _defaultMode      = RoundingMode.nearest;
 
   Future<void> generateFullProgram({
     required int programId,
@@ -33,13 +34,12 @@ class WorkoutGeneratorService {
     final programRepo  = _ref.read(programRepositoryProvider);
     final workoutRepo  = _ref.read(workoutRepositoryProvider);
 
-    // ── 1. Read rounding settings ───────────────────────────────────────────────
+    // ── 1. Read rounding settings ───────────────────────────────────────────
     final settings          = await settingsRepo.getSettings();
     final roundingIncrement = settings?.roundingIncrement ?? _defaultIncrement;
-    // fix: RoundingMode.fromString() is non-nullable; drop the dead ?? fallback
     final roundingMode      = RoundingMode.fromString(settings?.roundingMode);
 
-    // ── 2. Pure seeder data ───────────────────────────────────────────────────────
+    // ── 2. Pure seeder data ──────────────────────────────────────────────────
     final allTemplates  = FrequencyTemplateSeeder.generateFrequencyTemplates();
     final allIntensity  = IntensitySeeder.generateIntensityPoints();
     final allRepTargets = RepTargetSeeder.generateRepTargetPoints();
@@ -59,7 +59,7 @@ class WorkoutGeneratorService {
         .toList()
       ..sort();
 
-    // ── 3. Build domain TrainingMax map ─────────────────────────────────────────
+    // ── 3. Build domain TrainingMax map ───────────────────────────────────────
     final now   = DateTime.now();
     final tmMap = <String, TrainingMax>{
       for (final e in trainingMaxes.entries)
@@ -73,7 +73,7 @@ class WorkoutGeneratorService {
         ),
     };
 
-    // ── 4. Generate week × day ────────────────────────────────────────────────────
+    // ── 4. Generate week × day ──────────────────────────────────────────────────
     for (final week in weeks) {
       for (final dayIndex in dayIndices) {
 
