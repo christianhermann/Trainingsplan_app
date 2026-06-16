@@ -9,7 +9,7 @@ import '../../data/repositories/training_max_repository.dart';
 import '../../domain/models/enums.dart';
 import '../../domain/services/workout_generator_service.dart';
 
-// ── Lift key maps ─────────────────────────────────────────────────────────────
+// ── Lift key maps ───────────────────────────────────────────────────
 
 const _liftNameMap = <String, String>{
   'squat':            'squat',
@@ -32,6 +32,24 @@ const _mainLiftKeys = [
   'bench_press',
   'deadlift',
   'overhead_press',
+];
+
+/// Auxiliary lift slot keys grouped by their parent main lift.
+/// Used in the UI for the collapsible "Auxiliary Maxes" section and in
+/// saveAndGenerate() to resolve TMs (user-entered or mainMax * 0.9 default).
+const auxSlotsByMain = <String, List<String>>{
+  'squat':          ['front_squat', 'squat_aux2'],
+  'bench_press':    ['close_grip_bench', 'bench_aux2'],
+  'deadlift':       ['deadlift_aux'],
+  'overhead_press': ['ohp_aux'],
+};
+
+/// All 9 auxiliary slot keys in display order.
+const _allAuxKeys = [
+  'front_squat', 'squat_aux2',
+  'close_grip_bench', 'bench_aux2',
+  'deadlift_aux',
+  'ohp_aux',
 ];
 
 /// Aux options per main lift (slot key → list of named options).
@@ -59,12 +77,13 @@ const _defaultAux = <String, String>{
   'overhead_press': 'ohp_aux',
 };
 
-// ── State ─────────────────────────────────────────────────────────────────────
+// ── State ────────────────────────────────────────────────────────────────
 
 class SetupState {
   const SetupState({
     this.selectedFrequency,
     this.trainingMaxes       = const {},
+    this.auxTrainingMaxes    = const {},
     this.selectedAuxiliaries = _defaultAux,
     this.liftNames           = liftDefaults,
     this.isValid             = false,
@@ -73,7 +92,11 @@ class SetupState {
   });
 
   final ProgramFrequency?   selectedFrequency;
+  /// Main lift TMs (required). Keys: squat, bench_press, deadlift, overhead_press.
   final Map<String, double> trainingMaxes;
+  /// Auxiliary lift TMs (optional). Keys from [_allAuxKeys].
+  /// Missing keys fall back to mainMax * 0.9 in saveAndGenerate().
+  final Map<String, double> auxTrainingMaxes;
   final Map<String, String> selectedAuxiliaries;
   final Map<String, String> liftNames;
   final bool    isValid;
@@ -83,6 +106,7 @@ class SetupState {
   SetupState copyWith({
     ProgramFrequency?    selectedFrequency,
     Map<String, double>? trainingMaxes,
+    Map<String, double>? auxTrainingMaxes,
     Map<String, String>? selectedAuxiliaries,
     Map<String, String>? liftNames,
     bool?                isValid,
@@ -93,6 +117,7 @@ class SetupState {
       SetupState(
         selectedFrequency:   selectedFrequency   ?? this.selectedFrequency,
         trainingMaxes:       trainingMaxes       ?? this.trainingMaxes,
+        auxTrainingMaxes:    auxTrainingMaxes    ?? this.auxTrainingMaxes,
         selectedAuxiliaries: selectedAuxiliaries ?? this.selectedAuxiliaries,
         liftNames:           liftNames           ?? this.liftNames,
         isValid:             isValid             ?? this.isValid,
@@ -103,7 +128,7 @@ class SetupState {
       );
 }
 
-// ── Notifier ──────────────────────────────────────────────────────────────────
+// ── Notifier ───────────────────────────────────────────────────────────────────
 
 class SetupNotifier extends Notifier<SetupState> {
   @override
@@ -125,6 +150,18 @@ class SetupNotifier extends Notifier<SetupState> {
     _validate();
   }
 
+  /// Update a single auxiliary lift TM. Pass 0 to clear (falls back to
+  /// mainMax * 0.9 at save time).
+  void updateAuxTrainingMax(String liftId, double value) {
+    final updated = Map<String, double>.from(state.auxTrainingMaxes);
+    if (value > 0) {
+      updated[liftId] = value;
+    } else {
+      updated.remove(liftId);
+    }
+    state = state.copyWith(auxTrainingMaxes: updated);
+  }
+
   void selectAuxiliary(String mainLiftKey, String auxLiftKey) {
     final updated = Map<String, String>.from(state.selectedAuxiliaries);
     updated[mainLiftKey] = auxLiftKey;
@@ -143,6 +180,7 @@ class SetupNotifier extends Notifier<SetupState> {
   void clearAllMaxes() {
     state = state.copyWith(
       trainingMaxes:       {},
+      auxTrainingMaxes:    {},
       selectedAuxiliaries: _defaultAux,
       liftNames:           liftDefaults,
     );
@@ -201,6 +239,7 @@ class SetupNotifier extends Notifier<SetupState> {
         ));
       }
 
+      // ── Save main lift TMs ────────────────────────────────────────────
       for (final key in _mainLiftKeys) {
         final tm   = state.trainingMaxes[key]!;
         final dbId = liftDbIds[key]!;
@@ -211,6 +250,53 @@ class SetupNotifier extends Notifier<SetupState> {
         ));
       }
 
+      // ── Build full TM map for program generation ───────────────────────
+      // Auxiliary TMs: use user-entered value if present, else mainMax * 0.9
+      // (Quick Setup default from the workbook).
+      final fullTmMap = <String, double>{
+        for (final key in _mainLiftKeys)
+          key: state.trainingMaxes[key]!,
+      };
+
+      for (final mainKey in _mainLiftKeys) {
+        final mainTm = state.trainingMaxes[mainKey]!;
+        final auxKeys = auxSlotsByMain[mainKey] ?? [];
+        for (final auxKey in auxKeys) {
+          final userValue = state.auxTrainingMaxes[auxKey];
+          fullTmMap[auxKey] = (userValue != null && userValue > 0)
+              ? userValue
+              : mainTm * 0.9;
+        }
+      }
+
+      // Back/accessory slots: default to deadlift * 0.9 if not overridden.
+      const backKeys = ['barbell_rows', 'dumbbell_rows', 'pulldowns'];
+      final deadliftTm = state.trainingMaxes['deadlift']!;
+      for (final k in backKeys) {
+        fullTmMap[k] = deadliftTm * 0.9;
+      }
+
+      // ── Save auxiliary TMs to DB (actual user-entered or computed defaults) ──
+      for (final auxKey in _allAuxKeys) {
+        final dbId = liftDbIds[auxKey];
+        if (dbId == null) continue;
+        await tmRepo.saveMax(TrainingMaxesCompanion.insert(
+          liftId:        dbId,
+          value:         fullTmMap[auxKey]!,
+          effectiveDate: now,
+        ));
+      }
+      for (final k in backKeys) {
+        final dbId = liftDbIds[k];
+        if (dbId == null) continue;
+        await tmRepo.saveMax(TrainingMaxesCompanion.insert(
+          liftId:        dbId,
+          value:         fullTmMap[k]!,
+          effectiveDate: now,
+        ));
+      }
+
+      // ── Create program + 21 weeks ─────────────────────────────────────
       final programId = await programRepo.saveProgram(
         ProgramsCompanion.insert(
           name:      'My Program',
@@ -230,20 +316,6 @@ class SetupNotifier extends Notifier<SetupState> {
           ),
         );
         weeks.add((id: weekId, weekNumber: w));
-      }
-
-      final fullTmMap = <String, double>{
-        for (final key in _mainLiftKeys)
-          key: state.trainingMaxes[key]!,
-      };
-      for (final mainKey in _mainLiftKeys) {
-        final auxKey = chosenAux[mainKey];
-        if (auxKey == null) continue;
-        fullTmMap[auxKey] = state.trainingMaxes[mainKey]!;
-      }
-      const backKeys = ['barbell_rows', 'dumbbell_rows', 'pulldowns'];
-      for (final k in backKeys) {
-        fullTmMap[k] = state.trainingMaxes['deadlift']!;
       }
 
       await generatorSvc.generateFullProgram(
