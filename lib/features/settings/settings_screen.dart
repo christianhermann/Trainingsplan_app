@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/persistence/database.dart';
-import '../../data/repositories/program_repository.dart';
 import '../../data/repositories/settings_repository.dart';
-import '../../data/repositories/workout_repository.dart';
 
-// ── Provider ────────────────────────────────────────────────────────────────
+// ── Provider ──────────────────────────────────────────────────────────────────
 
 final settingsProvider =
     AsyncNotifierProvider<SettingsNotifier, AppSettingsTableData?>(
@@ -20,7 +18,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsTableData?> {
     return repo.getSettings();
   }
 
-  Future<void> update(AppSettingsTableCompanion companion) async {
+  Future<void> saveSettings(AppSettingsTableCompanion companion) async {
     final repo = ref.read(settingsRepositoryProvider);
     await repo.saveSettings(companion);
     ref.invalidateSelf();
@@ -35,12 +33,11 @@ class SettingsNotifier extends AsyncNotifier<AppSettingsTableData?> {
     await db.delete(db.workoutWeeks).go();
     await db.delete(db.programs).go();
     await db.delete(db.trainingMaxes).go();
-    // Invalidate all affected providers
     ref.invalidateSelf();
   }
 }
 
-// ── Screen ───────────────────────────────────────────────────────────────────
+// ── Screen ────────────────────────────────────────────────────────────────────
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -87,7 +84,7 @@ class SettingsScreen extends ConsumerWidget {
                     title: const Text('Show notes field'),
                     value: settings.showNotesField,
                     onChanged: (v) =>
-                        ref.read(settingsProvider.notifier).update(
+                        ref.read(settingsProvider.notifier).saveSettings(
                               AppSettingsTableCompanion(
                                   showNotesField: Value(v)),
                             ),
@@ -96,7 +93,7 @@ class SettingsScreen extends ConsumerWidget {
                     title: const Text('Show video field'),
                     value: settings.showVideoField,
                     onChanged: (v) =>
-                        ref.read(settingsProvider.notifier).update(
+                        ref.read(settingsProvider.notifier).saveSettings(
                               AppSettingsTableCompanion(
                                   showVideoField: Value(v)),
                             ),
@@ -125,8 +122,8 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showWeightUnitPicker(BuildContext context, WidgetRef ref,
-      AppSettingsTableData settings) {
+  void _showWeightUnitPicker(
+      BuildContext context, WidgetRef ref, AppSettingsTableData settings) {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
@@ -140,7 +137,7 @@ class SettingsScreen extends ConsumerWidget {
               groupValue: settings.weightUnit,
               onChanged: (v) {
                 if (v != null) {
-                  ref.read(settingsProvider.notifier).update(
+                  ref.read(settingsProvider.notifier).saveSettings(
                         AppSettingsTableCompanion(weightUnit: Value(v)),
                       );
                   Navigator.pop(context);
@@ -153,8 +150,8 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showRoundingPicker(BuildContext context, WidgetRef ref,
-      AppSettingsTableData settings) {
+  void _showRoundingPicker(
+      BuildContext context, WidgetRef ref, AppSettingsTableData settings) {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
@@ -168,7 +165,7 @@ class SettingsScreen extends ConsumerWidget {
               groupValue: settings.roundingIncrement,
               onChanged: (v) {
                 if (v != null) {
-                  ref.read(settingsProvider.notifier).update(
+                  ref.read(settingsProvider.notifier).saveSettings(
                         AppSettingsTableCompanion(
                             roundingIncrement: Value(v)),
                       );
@@ -182,8 +179,8 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showTimerPicker(BuildContext context, WidgetRef ref,
-      AppSettingsTableData settings) {
+  void _showTimerPicker(
+      BuildContext context, WidgetRef ref, AppSettingsTableData settings) {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
@@ -192,13 +189,13 @@ class SettingsScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [60, 90, 120, 150, 180, 240, 300].map((s) {
             return RadioListTile<int>(
-              title: Text(
-                  '${s ~/ 60}m${s % 60 > 0 ? ' ${s % 60}s' : ''}'),
+              title:
+                  Text('${s ~/ 60}m${s % 60 > 0 ? ' ${s % 60}s' : ''}'),
               value: s,
               groupValue: settings.restTimerSeconds,
               onChanged: (v) {
                 if (v != null) {
-                  ref.read(settingsProvider.notifier).update(
+                  ref.read(settingsProvider.notifier).saveSettings(
                         AppSettingsTableCompanion(
                             restTimerSeconds: Value(v)),
                       );
@@ -246,7 +243,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.title);

@@ -6,7 +6,7 @@ import '../../data/repositories/lift_repository.dart';
 import '../../data/repositories/program_repository.dart';
 import '../../data/repositories/workout_repository.dart';
 
-// ── State ───────────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────────
 
 class TodayWorkoutState {
   const TodayWorkoutState({
@@ -30,7 +30,7 @@ class TodayWorkoutState {
   final bool isCompleted;
 }
 
-// ── Notifier ─────────────────────────────────────────────────────────────────
+// ── Notifier ──────────────────────────────────────────────────────────────────
 
 class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
   @override
@@ -83,19 +83,17 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
 
   /// Mark current day completed; auto-advance program week when all days done.
   Future<void> completeWorkout() async {
-    final current = state.valueOrNull;
+    final current = state.value;
     if (current == null) return;
 
     final programRepo = ref.read(programRepositoryProvider);
 
-    // 1. Mark day completed
     await programRepo.updateDay(WorkoutDaysCompanion(
       id: Value(current.workoutDayId),
       status: const Value('completed'),
       completedAt: Value(DateTime.now()),
     ));
 
-    // 2. Re-fetch all days for current week and check if all are done
     final program = await programRepo.getActiveProgram();
     if (program != null) {
       final weeks = await programRepo.getWeeksForProgram(program.id);

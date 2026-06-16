@@ -2,10 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/repositories/settings_repository.dart';
-export '../../features/settings/settings_screen.dart' show settingsProvider;
+import '../../features/settings/settings_screen.dart' show settingsProvider;
 
-// ── Timer state ─────────────────────────────────────────────────────────────
+// ── Timer state ──────────────────────────────────────────────────────────────
 
 class RestTimerState {
   const RestTimerState({
@@ -33,14 +32,26 @@ class RestTimerState {
       );
 }
 
-class RestTimerNotifier extends StateNotifier<RestTimerState> {
-  RestTimerNotifier(int defaultSeconds)
-      : super(RestTimerState(
-            totalSeconds: defaultSeconds,
-            remaining: defaultSeconds,
-            isRunning: false));
+// ── Notifier ─────────────────────────────────────────────────────────────────
 
+class RestTimerNotifier extends Notifier<RestTimerState> {
+  static const _defaultSeconds = 180;
   Timer? _timer;
+
+  @override
+  RestTimerState build() {
+    ref.listen(settingsProvider, (_, next) {
+      next.whenData((s) {
+        if (s != null) setDuration(s.restTimerSeconds);
+      });
+    });
+    ref.onDispose(() => _timer?.cancel());
+    return const RestTimerState(
+      totalSeconds: _defaultSeconds,
+      remaining: _defaultSeconds,
+      isRunning: false,
+    );
+  }
 
   void start() {
     if (state.isRunning) return;
@@ -70,27 +81,12 @@ class RestTimerNotifier extends StateNotifier<RestTimerState> {
     state = RestTimerState(
         totalSeconds: seconds, remaining: seconds, isRunning: false);
   }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
 }
 
-/// Reads default seconds from settings; falls back to 180.
 final restTimerProvider =
-    StateNotifierProvider<RestTimerNotifier, RestTimerState>((ref) {
-  final notifier = RestTimerNotifier(180);
-  ref.listen(settingsProvider, (_, next) {
-    next.whenData((s) {
-      if (s != null) notifier.setDuration(s.restTimerSeconds);
-    });
-  });
-  return notifier;
-});
+    NotifierProvider<RestTimerNotifier, RestTimerState>(RestTimerNotifier.new);
 
-// ── Widget ───────────────────────────────────────────────────────────────────
+// ── Widget ────────────────────────────────────────────────────────────────────
 
 class RestTimerWidget extends ConsumerWidget {
   const RestTimerWidget({super.key});
@@ -107,7 +103,7 @@ class RestTimerWidget extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withOpacity(0.4),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
         border:
             Border(bottom: BorderSide(color: cs.outlineVariant, width: 0.5)),
       ),

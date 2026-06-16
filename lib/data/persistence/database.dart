@@ -147,28 +147,21 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _seedLifts() async {
     const seeds = [
       ('squat', 'Squat', 'main', true, false, 1),
-      ('bankdruecken', 'Bankdr\u00fccken', 'main', true, false, 2),
+      ('bankdruecken', 'Bankdrücken', 'main', true, false, 2),
       ('deadlift', 'Deadlift', 'main', true, false, 3),
-      ('schulterdruecken', 'Schulterdr\u00fccken', 'main', true, false, 4),
+      ('schulterdruecken', 'Schulterdrücken', 'main', true, false, 4),
       ('leg_press', 'Leg Press', 'auxiliary', false, true, 5),
       ('wider_stance_squat', 'Wider Stance Squat', 'auxiliary', false, true, 6),
       ('db_bench', 'DB Bench', 'auxiliary', false, true, 7),
       ('incline_db_press', 'Incline DB Press', 'auxiliary', false, true, 8),
       ('trap_bar_deadlift', 'Trap Bar Deadlift', 'auxiliary', false, true, 9),
-      (
-        'db_schulterdruecken',
-        'DB Schulterdr\u00fccken',
-        'auxiliary',
-        false,
-        true,
-        10
-      ),
+      ('db_schulterdruecken', 'DB Schulterdrücken', 'auxiliary', false, true, 10),
     ];
     for (final s in seeds) {
       await into(lifts).insert(LiftsCompanion.insert(
-        name: Value(s.$1),
-        displayName: Value(s.$2),
-        category: Value(s.$3),
+        name: s.$1,
+        displayName: s.$2,
+        category: s.$3,
         isMainLift: Value(s.$4),
         isAuxiliaryLift: Value(s.$5),
         defaultOrder: Value(s.$6),
@@ -177,8 +170,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _seedDefaultSettings() async {
-    await into(appSettingsTable)
-        .insert(const AppSettingsTableCompanion());
+    await into(appSettingsTable).insert(const AppSettingsTableCompanion());
   }
 }
 

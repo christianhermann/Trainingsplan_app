@@ -27,7 +27,7 @@ const _frequencyDays = {
   ProgramFrequency.six: 6,
 };
 
-// ── State ───────────────────────────────────────────────────────────────────
+// ── State ────────────────────────────────────────────────────────────────────
 
 class SetupState {
   const SetupState({
@@ -61,11 +61,11 @@ class SetupState {
       );
 }
 
-// ── Notifier ───────────────────────────────────────────────────────────────────
+// ── Notifier ──────────────────────────────────────────────────────────────────
 
-class SetupNotifier extends StateNotifier<SetupState> {
-  SetupNotifier(this._ref) : super(const SetupState());
-  final Ref _ref;
+class SetupNotifier extends Notifier<SetupState> {
+  @override
+  SetupState build() => const SetupState();
 
   void selectFrequency(ProgramFrequency frequency) {
     state = state.copyWith(selectedFrequency: frequency, clearError: true);
@@ -73,7 +73,7 @@ class SetupNotifier extends StateNotifier<SetupState> {
   }
 
   void updateTrainingMax(String liftId, double value) {
-    final updated = {...state.trainingMaxes};
+    final updated = Map<String, double>.from(state.trainingMaxes);
     if (value > 0) {
       updated[liftId] = value;
     } else {
@@ -108,10 +108,10 @@ class SetupNotifier extends StateNotifier<SetupState> {
     state = state.copyWith(isSaving: true, clearError: true);
 
     try {
-      final liftRepo = _ref.read(liftRepositoryProvider);
-      final tmRepo = _ref.read(trainingMaxRepositoryProvider);
-      final programRepo = _ref.read(programRepositoryProvider);
-      final workoutRepo = _ref.read(workoutRepositoryProvider);
+      final liftRepo = ref.read(liftRepositoryProvider);
+      final tmRepo = ref.read(trainingMaxRepositoryProvider);
+      final programRepo = ref.read(programRepositoryProvider);
+      final workoutRepo = ref.read(workoutRepositoryProvider);
       final intensitySvc = IntensityLookupService();
       final repSvc = RepTargetLookupService();
       final now = DateTime.now();
@@ -128,31 +128,27 @@ class SetupNotifier extends StateNotifier<SetupState> {
       for (final entry in state.trainingMaxes.entries) {
         final dbId = liftIdMap[entry.key];
         if (dbId == null) continue;
-        await tmRepo.saveMax(TrainingMaxesCompanion(
-          liftId: Value(dbId),
-          value: Value(entry.value),
-          effectiveDate: Value(now),
+        await tmRepo.saveMax(TrainingMaxesCompanion.insert(
+          liftId: dbId,
+          value: entry.value,
+          effectiveDate: now,
         ));
       }
 
       final frequency = state.selectedFrequency!;
-      final programId = await programRepo.saveProgram(ProgramsCompanion(
-        name: const Value('My Program'),
-        frequency: Value(frequency.name),
-        currentWeek: const Value(1),
-        totalWeeks: const Value(21),
-        isActive: const Value(true),
-        createdAt: Value(now),
-        updatedAt: Value(now),
+      final programId = await programRepo.saveProgram(ProgramsCompanion.insert(
+        name: 'My Program',
+        frequency: frequency.name,
+        createdAt: now,
+        updatedAt: now,
       ));
 
       final daysPerWeek = _frequencyDays[frequency] ?? 3;
 
       for (int week = 1; week <= 21; week++) {
-        final weekId = await programRepo.saveWeek(WorkoutWeeksCompanion(
-          programId: Value(programId),
-          weekNumber: Value(week),
-          displayLabel: Value('Week $week'),
+        final weekId = await programRepo.saveWeek(WorkoutWeeksCompanion.insert(
+          programId: programId,
+          weekNumber: week,
         ));
 
         final intensity = intensitySvc.getIntensityForWeek(week);
@@ -160,11 +156,9 @@ class SetupNotifier extends StateNotifier<SetupState> {
         final repsLast = repSvc.getLastSetReps(week);
 
         for (int day = 0; day < daysPerWeek; day++) {
-          final dayId = await programRepo.saveDay(WorkoutDaysCompanion(
-            workoutWeekId: Value(weekId),
-            dayIndex: Value(day),
-            title: Value('Day ${day + 1}'),
-            status: const Value('planned'),
+          final dayId = await programRepo.saveDay(WorkoutDaysCompanion.insert(
+            workoutWeekId: weekId,
+            dayIndex: day,
           ));
 
           final liftKey = _mainLiftKeys[day % _mainLiftKeys.length];
@@ -172,18 +166,18 @@ class SetupNotifier extends StateNotifier<SetupState> {
           final tm = state.trainingMaxes[liftKey]!;
           final workingWeight = ((tm * intensity / 2.5).round() * 2.5);
 
-          await workoutRepo.savePrescription(ExercisePrescriptionsCompanion(
-            workoutDayId: Value(dayId),
-            liftId: Value(dbLiftId),
-            trainingMaxSnapshot: Value(tm),
-            intensity: Value(intensity),
-            workingWeight: Value(workingWeight),
-            repsPerNormalSet: Value(repsNormal),
-            repOutTarget: Value(repsLast),
-            setGoal: const Value(4),
-            displayOrder: const Value(0),
-            isPrimaryBlock: const Value(true),
-          ));
+          await workoutRepo.savePrescription(
+            ExercisePrescriptionsCompanion.insert(
+              workoutDayId: dayId,
+              liftId: dbLiftId,
+              trainingMaxSnapshot: tm,
+              intensity: intensity,
+              workingWeight: workingWeight,
+              repsPerNormalSet: repsNormal,
+              repOutTarget: repsLast,
+              setGoal: 4,
+            ),
+          );
         }
       }
 
@@ -198,5 +192,4 @@ class SetupNotifier extends StateNotifier<SetupState> {
 }
 
 final setupProvider =
-    StateNotifierProvider<SetupNotifier, SetupState>(
-        (ref) => SetupNotifier(ref));
+    NotifierProvider<SetupNotifier, SetupState>(SetupNotifier.new);
