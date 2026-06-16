@@ -1,3 +1,20 @@
+// workout_generator_service.dart
+//
+// ROLE: DB orchestrator for full 21-week program generation and mid-cycle
+//       Training Max regeneration.
+//
+// This service sits at the infrastructure layer. It:
+//   1. Reads settings, frequency templates, intensity points, and rep-target
+//      points (via seeders / SettingsRepository).
+//   2. Persists WorkoutDay and ExercisePrescription rows to the Drift DB.
+//   3. Delegates all pure prescription math to [WorkoutGenerationService]
+//      (workout_generation_service.dart), which has zero DB dependencies.
+//
+// Wired into the app via [workoutGeneratorServiceProvider] (Riverpod).
+// Called by SetupNotifier.saveAndGenerate() in setup_provider.dart.
+//
+// See docs/workbook--logic.md for the full prescription calculation spec.
+
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
