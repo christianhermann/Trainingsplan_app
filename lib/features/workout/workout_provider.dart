@@ -160,7 +160,9 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
       }
     }
 
-    // 3. Auto-advance week when all days done
+    // 3. Auto-advance week when all days done.
+    //    Yield to the microtask queue so Drift can flush the status update
+    //    written in step 1 before we re-query the same rows.
     final program = await programRepo.getActiveProgram();
     if (program != null) {
       final weeks = await programRepo.getWeeksForProgram(program.id);
@@ -168,10 +170,11 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
         (w) => w.weekNumber == program.currentWeek,
         orElse: () => weeks.first,
       );
+
+      await Future.delayed(Duration.zero);
+
       final updatedDays = await programRepo.getDaysForWeek(currentWeek.id);
-      final allDone = updatedDays.every(
-        (d) => d.id == current.workoutDayId || d.status == 'completed',
-      );
+      final allDone = updatedDays.every((d) => d.status == 'completed');
 
       if (allDone && program.currentWeek < program.totalWeeks) {
         await programRepo.updateProgram(ProgramsCompanion(
