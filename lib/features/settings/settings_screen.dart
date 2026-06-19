@@ -172,17 +172,9 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
           onPressed: () => _confirmReset(context),
         ),
 
-        const SizedBox(height: 8),
-
-        OutlinedButton.icon(
-          icon:  const Icon(Icons.upload_file),
-          label: const Text('Import workbook (coming soon)'),
-          onPressed: null,
-        ),
-
         const SizedBox(height: 32),
 
-        // ── Version label (5-tap easter egg → Debug screen) ─────────────────
+        // ── Version label (5-tap easter egg → Debug screen) ──────────────
         GestureDetector(
           onTap: () {
             setState(() => _versionTapCount++);

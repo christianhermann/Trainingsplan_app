@@ -32,7 +32,6 @@ class TodayScreen extends ConsumerWidget {
           error:   (_, __) => const Text('Today'),
         ),
         actions: [
-          // Edit training maxes entry point.
           IconButton(
             icon:    const Icon(Icons.edit_rounded),
             tooltip: 'Edit Training Maxes',
@@ -62,8 +61,43 @@ class TodayScreen extends ConsumerWidget {
   }
 
   Future<void> _onCompletePressed(BuildContext context, WidgetRef ref) async {
+    // Confirm before completing.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title:   const Text('Complete workout?'),
+        content: const Text(
+            'This will log progression and advance to the next training day.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Complete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!context.mounted) return;
+
     HapticFeedback.mediumImpact();
-    await ref.read(todayWorkoutProvider.notifier).completeWorkout();
+
+    try {
+      await ref.read(todayWorkoutProvider.notifier).completeWorkout();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not complete workout: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -219,7 +253,7 @@ class _ExerciseCard extends ConsumerWidget {
       opacity: isCompleted ? 0.6 : 1.0,
       child: Card(
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorderRadius: BorderRadius.circular(14)),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           child: Column(
