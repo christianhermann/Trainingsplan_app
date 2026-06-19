@@ -33,7 +33,7 @@ class ProgramRepository {
         .write(const ProgramsCompanion(isActive: Value(true)));
   }
 
-  // ── Workout weeks ──
+  // -- Workout weeks --
 
   Future<List<WorkoutWeek>> getWeeksForProgram(int programId) =>
       (_db.select(_db.workoutWeeks)
@@ -41,16 +41,26 @@ class ProgramRepository {
             ..orderBy([(t) => OrderingTerm.asc(t.weekNumber)]))
           .get();
 
+  /// Returns a single week by its primary key, or null if not found.
+  Future<WorkoutWeek?> getWeekById(int weekId) =>
+      (_db.select(_db.workoutWeeks)..where((t) => t.id.equals(weekId)))
+          .getSingleOrNull();
+
   Future<int> saveWeek(WorkoutWeeksCompanion companion) =>
       _db.into(_db.workoutWeeks).insertOnConflictUpdate(companion);
 
-  // ── Workout days ──
+  // -- Workout days --
 
   Future<List<WorkoutDay>> getDaysForWeek(int weekId) =>
       (_db.select(_db.workoutDays)
             ..where((t) => t.workoutWeekId.equals(weekId))
             ..orderBy([(t) => OrderingTerm.asc(t.dayIndex)]))
           .get();
+
+  /// Returns a single workout day by its primary key, or null if not found.
+  Future<WorkoutDay?> getDayById(int dayId) =>
+      (_db.select(_db.workoutDays)..where((t) => t.id.equals(dayId)))
+          .getSingleOrNull();
 
   Future<int> saveDay(WorkoutDaysCompanion companion) =>
       _db.into(_db.workoutDays).insertOnConflictUpdate(companion);
