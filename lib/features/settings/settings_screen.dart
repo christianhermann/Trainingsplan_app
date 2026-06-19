@@ -356,21 +356,23 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
       builder: (_) => AlertDialog(
         title: Text(title),
         contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: options
-              .map((opt) => RadioListTile<T>(
-                    title:     Text(labelOf(opt)),
-                    value:     opt,
-                    groupValue: current,
-                    onChanged: (v) {
-                      if (v != null) {
-                        onSelected(v);
-                        Navigator.pop(context);
-                      }
-                    },
-                  ))
-              .toList(),
+        content: RadioGroup<T>(
+          groupValue: current,
+          onChanged: (v) {
+            if (v != null) {
+              onSelected(v);
+              Navigator.pop(context);
+            }
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: options
+                .map((opt) => RadioListTile<T>(
+                      title: Text(labelOf(opt)),
+                      value: opt,
+                    ))
+                .toList(),
+          ),
         ),
       ),
     );

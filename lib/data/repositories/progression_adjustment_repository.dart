@@ -1,10 +1,11 @@
+import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../persistence/database.dart';
 import '../../domain/models/enums.dart';
-import '../../domain/models/progress_adjustment.dart';
+import '../../domain/models/progress_adjustment.dart' as domain;
 
-/// Reads [ProgressAdjustment] rules from the [ProgressAdjustments] Drift table.
+/// Reads [domain.ProgressAdjustment] rules from the [ProgressAdjustments] Drift table.
 ///
 /// The database is the single source of truth for adjustment rules.
 /// Rows are seeded on install / schema upgrade by [AppDatabase._seedProgressionAdjustments]
@@ -13,24 +14,27 @@ class ProgressionAdjustmentRepository {
   ProgressionAdjustmentRepository(this._db);
   final AppDatabase _db;
 
-  /// Returns every adjustment row mapped to the domain [ProgressAdjustment] model.
-  Future<List<ProgressAdjustment>> getAdjustments() async {
+  /// Returns every adjustment row mapped to the domain [domain.ProgressAdjustment] model.
+  Future<List<domain.ProgressAdjustment>> getAdjustments() async {
     final rows = await _db.select(_db.progressAdjustments).get();
     return rows.map(_toDomain).toList();
   }
 
   /// Returns adjustments for a specific lift ID (including 'all_lifts' fallback rows).
-  Future<List<ProgressAdjustment>> getAdjustmentsForLift(String liftId) async {
+  Future<List<domain.ProgressAdjustment>> getAdjustmentsForLift(String liftId) async {
     final rows = await (_db.select(_db.progressAdjustments)
           ..where(
-            (t) => t.liftId.equals(liftId) | t.liftId.equals('all_lifts'),
+            (t) => Expression.or([
+              t.liftId.equals(liftId),
+              t.liftId.equals('all_lifts'),
+            ]),
           ))
         .get();
     return rows.map(_toDomain).toList();
   }
 
-  ProgressAdjustment _toDomain(ProgressAdjustment row) {
-    return ProgressAdjustment(
+  domain.ProgressAdjustment _toDomain(ProgressAdjustment row) {
+    return domain.ProgressAdjustment(
       id:                  row.id,
       liftId:              row.liftId,
       outcome:             ProgressOutcome.values.byName(row.outcome),

@@ -21,7 +21,7 @@ class EditTrainingMaxScreen extends ConsumerWidget {
     final notifier = ref.read(editTmProvider.notifier);
 
     ref.listen(editTmProvider, (_, next) {
-      if (next.valueOrNull?.isDone == true) {
+      if (next.hasValue && next.value!.isDone) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(

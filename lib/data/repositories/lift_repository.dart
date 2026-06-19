@@ -25,3 +25,13 @@ class LiftRepository {
 final liftRepositoryProvider = Provider<LiftRepository>((ref) {
   return LiftRepository(ref.watch(databaseProvider));
 });
+
+final allLiftsProvider = FutureProvider<List<Lift>>((ref) {
+  return ref.watch(liftRepositoryProvider).getAllLifts();
+});
+
+final liftByIdProvider = FutureProvider.family<Lift?, int>((ref, id) async {
+  final repo = ref.watch(liftRepositoryProvider);
+  final lifts = await repo.getAllLifts();
+  return lifts.where((l) => l.id == id).firstOrNull;
+});

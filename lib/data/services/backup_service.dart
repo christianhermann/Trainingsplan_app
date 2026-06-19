@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:drift/drift.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../persistence/database.dart';
@@ -48,11 +49,9 @@ class BackupService {
     final file = File('${dir.path}/$fileName');
     await file.writeAsString(payload);
 
-    await SharePlus.instance.share(
-      ShareParams(
-        files:   [XFile(file.path, mimeType: 'application/json')],
-        subject: 'Trainingsplan Backup',
-      ),
+    await Share.shareXFiles(
+      [XFile(file.path, mimeType: 'application/json')],
+      subject: 'Trainingsplan Backup',
     );
   }
 

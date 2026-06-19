@@ -11,7 +11,28 @@ enum ProgramFrequency {
   three,
   four,
   five,
-  six,
+  six;
+
+  /// Parse a stored string to a [ProgramFrequency].
+  ///
+  /// Accepted values: 'two', 'three', 'four', 'five', 'six'.
+  /// Unknown values fall back to [three].
+  static ProgramFrequency fromString(String? value) {
+    switch (value?.toLowerCase().trim()) {
+      case 'two':
+        return ProgramFrequency.two;
+      case 'three':
+        return ProgramFrequency.three;
+      case 'four':
+        return ProgramFrequency.four;
+      case 'five':
+        return ProgramFrequency.five;
+      case 'six':
+        return ProgramFrequency.six;
+      default:
+        return ProgramFrequency.three;
+    }
+  }
 }
 
 /// Source of training max value.

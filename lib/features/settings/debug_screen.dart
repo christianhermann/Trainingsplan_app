@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/repositories/lift_repository.dart';
 import '../../data/repositories/progression_adjustment_repository.dart';
 import '../../data/repositories/training_max_repository.dart';
-import '../../data/repositories/workout_repository.dart';
 import '../../domain/models/enums.dart';
-import '../../domain/services/progression_service.dart';
 import '../workout/workout_provider.dart';
 
 // ── Debug data model ─────────────────────────────────────────────────────
@@ -48,11 +45,8 @@ final debugWorkoutProvider =
 
   final tmRepo         = ref.watch(trainingMaxRepositoryProvider);
   final adjustmentRepo = ref.watch(progressionAdjustmentRepositoryProvider);
-  final liftRepo       = ref.watch(liftRepositoryProvider);
 
   final adjustments = await adjustmentRepo.getAdjustments();
-  final allLifts    = await liftRepo.getAllLifts();
-  final liftByName  = {for (final l in allLifts) l.name: l};
 
   final rows = <DebugLiftRow>[];
 

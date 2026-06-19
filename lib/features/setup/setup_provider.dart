@@ -241,9 +241,8 @@ class SetupNotifier extends Notifier<SetupState> {
       final tmRepo       = ref.read(trainingMaxRepositoryProvider);
       final programRepo  = ref.read(programRepositoryProvider);
       final generatorSvc = ref.read(workoutGeneratorServiceProvider);
-      final now          = DateTime.now();
-      final frequency    = state.selectedFrequency!;
-      final chosenAux    = state.selectedAuxiliaries;
+      final now       = DateTime.now();
+      final frequency = state.selectedFrequency!;
 
       await programRepo.deactivateAll();
 

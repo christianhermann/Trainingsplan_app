@@ -8,7 +8,6 @@ import '../../data/repositories/workout_repository.dart';
 import '../../domain/models/enums.dart';
 import '../../domain/services/progression_service.dart';
 import '../../data/seeders/progression_adjustment_seeder.dart';
-import 'history_provider.dart';
 
 // ── Provider ───────────────────────────────────────────────────────────────────
 
@@ -63,8 +62,7 @@ final liftHistoryProvider =
     final presc = prescMap[log.prescriptionId];
     if (presc == null) continue;
 
-    final day        = dayMap[presc.workoutDayId];
-    final completedAt = log.completedAt ?? day?.completedAt;
+    final completedAt = log.completedAt;
 
     // Derive outcome.
     ProgressOutcome? outcome;
@@ -77,13 +75,11 @@ final liftHistoryProvider =
       );
 
       // Delta lookup — same logic as HistorySession.deltaFor.
-      if (outcome != null) {
-        final specific = _adjustments.where((a) =>
-            a.liftId == 'all_lifts' &&
-            a.outcome == outcome &&
-            a.appliesToTrainingMax);
-        delta = specific.isNotEmpty ? specific.first.delta : null;
-      }
+      final specific = _adjustments.where((a) =>
+          a.liftId == 'all_lifts' &&
+          a.outcome == outcome &&
+          a.appliesToTrainingMax);
+      delta = specific.isNotEmpty ? specific.first.delta : null;
     }
 
     entries.add(LiftHistoryEntry(

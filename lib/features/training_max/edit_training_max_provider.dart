@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/catalogue/lift_catalogue.dart';
+import '../../data/persistence/database.dart';
 import '../../data/repositories/lift_repository.dart';
 import '../../data/repositories/program_repository.dart';
 import '../../data/repositories/training_max_repository.dart';
@@ -71,8 +72,8 @@ class EditTmNotifier extends AsyncNotifier<EditTmState> {
   }
 
   void updateMax(String liftKey, double value) {
-    final current = state.valueOrNull;
-    if (current == null) return;
+    if (!state.hasValue) return;
+    final current = state.value!;
     final updated = Map<String, double>.from(current.trainingMaxes);
     if (value > 0) {
       updated[liftKey] = value;
@@ -83,8 +84,8 @@ class EditTmNotifier extends AsyncNotifier<EditTmState> {
   }
 
   Future<void> save() async {
-    final current = state.valueOrNull;
-    if (current == null || !current.isValid) return;
+    if (!state.hasValue || !state.value!.isValid) return;
+    final current = state.value!;
     state = AsyncData(current.copyWith(isSaving: true, clearError: true));
 
     try {
@@ -148,7 +149,7 @@ class EditTmNotifier extends AsyncNotifier<EditTmState> {
 
       state = AsyncData(current.copyWith(isSaving: false, isDone: true));
     } catch (e) {
-      final s = state.valueOrNull ?? const EditTmState();
+      final s = state.hasValue ? state.value! : const EditTmState();
       state = AsyncData(
           s.copyWith(isSaving: false, errorMessage: 'Failed to update: $e'));
     }
