@@ -5,6 +5,7 @@ import '../data/repositories/program_repository.dart';
 import '../features/history/history_detail_screen.dart';
 import '../features/history/history_screen.dart';
 import '../features/history/lift_history_screen.dart';
+import '../features/settings/debug_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/setup/setup_screen.dart';
 import '../features/training_max/edit_training_max_screen.dart';
@@ -70,6 +71,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path:    '/settings',
             name:    'settings',
             builder: (context, state) => const SettingsScreen(),
+            routes: [
+              GoRoute(
+                path:    'debug',
+                name:    'debug',
+                builder: (context, state) => const DebugScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path:    '/edit-training-maxes',

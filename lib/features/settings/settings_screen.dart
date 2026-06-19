@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../data/services/backup_service.dart';
 import '../../domain/models/app_settings.dart';
 import '../../domain/models/enums.dart';
 import 'settings_provider.dart';
@@ -28,7 +30,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-// ── Default re-exported for convenience ───────────────────────────────────────────────
+// ── Default ──────────────────────────────────────────────────────────────────────
 
 const _kDefault = AppSettings(
   id:               'default',
@@ -41,68 +43,78 @@ const _kDefault = AppSettings(
   showNotesField:   true,
 );
 
-// ── Settings list ────────────────────────────────────────────────────────────────────
+// ── Settings list ──────────────────────────────────────────────────────────────────
 
-class _SettingsList extends ConsumerWidget {
+class _SettingsList extends ConsumerStatefulWidget {
   const _SettingsList({required this.settings});
   final AppSettings settings;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SettingsList> createState() => _SettingsListState();
+}
+
+class _SettingsListState extends ConsumerState<_SettingsList> {
+  int  _versionTapCount = 0;
+  bool _exporting       = false;
+  bool _importing       = false;
+
+  AppSettings get s => widget.settings;
+
+  @override
+  Widget build(BuildContext context) {
     final notifier = ref.read(settingsProvider.notifier);
-    final s        = settings;
     final mode     = RoundingMode.fromString(s.roundingMode);
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
 
-        // ── Units & Rounding ──────────────────────────────────────────────────
+        // ── Units & Rounding ────────────────────────────────────────────
         const _SectionHeader('Units & Rounding'),
 
         _SettingsTile(
           title:    'Weight unit',
           subtitle: s.weightUnit.toUpperCase(),
-          onTap:    () => _showWeightUnitDialog(context, ref, s),
+          onTap:    () => _showWeightUnitDialog(context, s),
         ),
 
         _SettingsTile(
           title:    'Rounding mode',
           subtitle: _roundingModeLabel(mode),
-          onTap:    () => _showRoundingModeDialog(context, ref, mode),
+          onTap:    () => _showRoundingModeDialog(context, mode),
         ),
 
         _SettingsTile(
           title:    'Rounding increment',
           subtitle: '${s.roundingIncrement} ${s.weightUnit}',
-          onTap:    () => _showRoundingIncrementDialog(context, ref, s),
+          onTap:    () => _showRoundingIncrementDialog(context, s),
         ),
 
         const SizedBox(height: 16),
 
-        // ── Appearance ────────────────────────────────────────────────────────
+        // ── Appearance ──────────────────────────────────────────────────
         const _SectionHeader('Appearance'),
 
         _SettingsTile(
           title:    'Theme',
           subtitle: _themeModeLabel(s.themeMode),
-          onTap:    () => _showThemeModeDialog(context, ref, s),
+          onTap:    () => _showThemeModeDialog(context, s),
         ),
 
         const SizedBox(height: 16),
 
-        // ── Timer ────────────────────────────────────────────────────────────────────
+        // ── Timer ────────────────────────────────────────────────────────────
         const _SectionHeader('Timer'),
 
         _SettingsTile(
           title:    'Rest timer default',
           subtitle: _formatSeconds(s.restTimerSeconds),
-          onTap:    () => _showTimerDialog(context, ref, s),
+          onTap:    () => _showTimerDialog(context, s),
         ),
 
         const SizedBox(height: 16),
 
-        // ── Workout display ────────────────────────────────────────────────────
+        // ── Workout display ──────────────────────────────────────────────
         const _SectionHeader('Workout Display'),
 
         SwitchListTile(
@@ -117,9 +129,37 @@ class _SettingsList extends ConsumerWidget {
           onChanged: (_) => notifier.toggleVideoField(),
         ),
 
+        const SizedBox(height: 16),
+
+        // ── Import / Export ──────────────────────────────────────────────
+        const _SectionHeader('Import / Export'),
+        const SizedBox(height: 4),
+
+        OutlinedButton.icon(
+          icon:  _exporting
+              ? const SizedBox(
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.upload_rounded),
+          label: Text(_exporting ? 'Exporting…' : 'Export Training Data'),
+          onPressed: _exporting ? null : () => _doExport(context),
+        ),
+
+        const SizedBox(height: 8),
+
+        OutlinedButton.icon(
+          icon:  _importing
+              ? const SizedBox(
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.download_rounded),
+          label: Text(_importing ? 'Importing…' : 'Import from Backup'),
+          onPressed: _importing ? null : () => _doImport(context),
+        ),
+
         const SizedBox(height: 24),
 
-        // ── Danger zone ─────────────────────────────────────────────────────────
+        // ── Danger zone ──────────────────────────────────────────────────
         const _SectionHeader('Danger Zone'),
         const SizedBox(height: 8),
 
@@ -129,7 +169,7 @@ class _SettingsList extends ConsumerWidget {
               style: TextStyle(color: Colors.redAccent)),
           style: OutlinedButton.styleFrom(
               side: const BorderSide(color: Colors.redAccent)),
-          onPressed: () => _confirmReset(context, ref),
+          onPressed: () => _confirmReset(context),
         ),
 
         const SizedBox(height: 8),
@@ -139,14 +179,75 @@ class _SettingsList extends ConsumerWidget {
           label: const Text('Import workbook (coming soon)'),
           onPressed: null,
         ),
+
+        const SizedBox(height: 32),
+
+        // ── Version label (5-tap easter egg → Debug screen) ─────────────────
+        GestureDetector(
+          onTap: () {
+            setState(() => _versionTapCount++);
+            if (_versionTapCount >= 5) {
+              setState(() => _versionTapCount = 0);
+              context.goNamed('debug');
+            }
+          },
+          child: Center(
+            child: Text(
+              'v1.0.0+1',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.35)),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
       ],
     );
   }
 
-  // ── Dialogs ─────────────────────────────────────────────────────────────────
+  // ── Import / Export handlers ───────────────────────────────────────────
 
-  void _showWeightUnitDialog(
-      BuildContext context, WidgetRef ref, AppSettings s) {
+  Future<void> _doExport(BuildContext context) async {
+    setState(() => _exporting = true);
+    try {
+      await ref.read(backupServiceProvider).exportAndShare();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  Future<void> _doImport(BuildContext context) async {
+    setState(() => _importing = true);
+    try {
+      final msg = await ref.read(backupServiceProvider).importFromFile();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg)),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Import failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
+  }
+
+  // ── Dialogs ────────────────────────────────────────────────────────────
+
+  void _showWeightUnitDialog(BuildContext context, AppSettings s) {
     _showRadioDialog<String>(
       context:    context,
       title:      'Weight unit',
@@ -159,7 +260,7 @@ class _SettingsList extends ConsumerWidget {
   }
 
   void _showRoundingModeDialog(
-      BuildContext context, WidgetRef ref, RoundingMode current) {
+      BuildContext context, RoundingMode current) {
     _showRadioDialog<RoundingMode>(
       context:    context,
       title:      'Rounding mode',
@@ -172,7 +273,7 @@ class _SettingsList extends ConsumerWidget {
   }
 
   void _showRoundingIncrementDialog(
-      BuildContext context, WidgetRef ref, AppSettings s) {
+      BuildContext context, AppSettings s) {
     _showRadioDialog<double>(
       context:    context,
       title:      'Rounding increment',
@@ -184,8 +285,7 @@ class _SettingsList extends ConsumerWidget {
     );
   }
 
-  void _showThemeModeDialog(
-      BuildContext context, WidgetRef ref, AppSettings s) {
+  void _showThemeModeDialog(BuildContext context, AppSettings s) {
     _showRadioDialog<String>(
       context:    context,
       title:      'Theme',
@@ -197,7 +297,7 @@ class _SettingsList extends ConsumerWidget {
     );
   }
 
-  void _showTimerDialog(BuildContext context, WidgetRef ref, AppSettings s) {
+  void _showTimerDialog(BuildContext context, AppSettings s) {
     _showRadioDialog<int>(
       context:    context,
       title:      'Rest timer default',
@@ -209,7 +309,7 @@ class _SettingsList extends ConsumerWidget {
     );
   }
 
-  void _confirmReset(BuildContext context, WidgetRef ref) {
+  void _confirmReset(BuildContext context) {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
@@ -243,10 +343,6 @@ class _SettingsList extends ConsumerWidget {
     );
   }
 
-  // ── Generic radio dialog ───────────────────────────────────────────────────
-
-  /// Generic single-select dialog. Closes and calls [onSelected] immediately
-  /// on tap — no confirm button needed (matches one-tap patterns from guidelines).
   void _showRadioDialog<T>({
     required BuildContext context,
     required String title,
@@ -280,7 +376,7 @@ class _SettingsList extends ConsumerWidget {
     );
   }
 
-  // ── Label helpers ─────────────────────────────────────────────────────────
+  // ── Label helpers ────────────────────────────────────────────────────
 
   static String _roundingModeLabel(RoundingMode m) => switch (m) {
     RoundingMode.nearest => 'Nearest',
@@ -302,7 +398,7 @@ class _SettingsList extends ConsumerWidget {
   }
 }
 
-// ── Shared widgets ───────────────────────────────────────────────────────────────────
+// ── Shared widgets ────────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.title);
