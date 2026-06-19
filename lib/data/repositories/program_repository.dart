@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/models/enums.dart';
 import '../persistence/database.dart';
 
 class ProgramRepository {
@@ -78,7 +79,10 @@ class ProgramRepository {
     for (final weekId in futureWeekIds) {
       final days = await getDaysForWeek(weekId);
       futureDayIds.addAll(
-        days.where((d) => d.status != 'completed').map((d) => d.id),
+        days
+            .where((d) =>
+                WorkoutStatus.fromString(d.status) != WorkoutStatus.completed)
+            .map((d) => d.id),
       );
     }
     if (futureDayIds.isEmpty) return;

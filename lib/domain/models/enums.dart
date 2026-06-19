@@ -47,7 +47,26 @@ enum WorkoutStatus {
   planned,
   inProgress,
   completed,
-  skipped,
+  skipped;
+
+  /// Parse a stored string to a [WorkoutStatus].
+  ///
+  /// Accepted values (case-insensitive): 'planned', 'inprogress', 'completed', 'skipped'.
+  /// Unknown values fall back to [planned].
+  static WorkoutStatus fromString(String? value) {
+    switch (value?.toLowerCase().trim()) {
+      case 'planned':
+        return WorkoutStatus.planned;
+      case 'inprogress':
+        return WorkoutStatus.inProgress;
+      case 'completed':
+        return WorkoutStatus.completed;
+      case 'skipped':
+        return WorkoutStatus.skipped;
+      default:
+        return WorkoutStatus.planned;
+    }
+  }
 }
 
 /// Result outcome after logging performance against rep target.

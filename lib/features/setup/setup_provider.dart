@@ -9,23 +9,7 @@ import '../../data/repositories/training_max_repository.dart';
 import '../../domain/models/enums.dart';
 import '../../domain/services/workout_generator_service.dart';
 
-// ── Lift key maps ───────────────────────────────────────────────────
-
-const _liftNameMap = <String, String>{
-  'squat':            'squat',
-  'bench_press':      'bench_press',
-  'deadlift':         'deadlift',
-  'overhead_press':   'overhead_press',
-  'front_squat':      'front_squat',
-  'close_grip_bench': 'close_grip_bench',
-  'squat_aux2':       'squat_aux2',
-  'bench_aux2':       'bench_aux2',
-  'deadlift_aux':     'deadlift_aux',
-  'ohp_aux':          'ohp_aux',
-  'barbell_rows':     'barbell_rows',
-  'dumbbell_rows':    'dumbbell_rows',
-  'pulldowns':        'pulldowns',
-};
+// ── Lift key constants ─────────────────────────────────────────────────────────
 
 const _mainLiftKeys = [
   'squat',
@@ -37,6 +21,10 @@ const _mainLiftKeys = [
 /// Default Single @8% ratio used both in state initialisation and in
 /// the UI hint text (matches the workbook Quick Setup default).
 const kDefaultSingleAt8 = 0.9;
+
+/// Ratio applied to derive auxiliary and back-exercise TMs when the user
+/// does not provide explicit values.
+const _kAuxTmRatio = 0.9;
 
 /// Initial map so every main lift already has the workbook default.
 const _defaultSingleEightPercentages = <String, double>{
@@ -54,13 +42,26 @@ const auxSlotsByMain = <String, List<String>>{
   'overhead_press': ['ohp_aux'],
 };
 
-/// All 9 auxiliary slot keys in display order.
+/// All auxiliary slot keys in display order (used for iterating + saving TMs).
 const _allAuxKeys = [
   'front_squat', 'squat_aux2',
   'close_grip_bench', 'bench_aux2',
   'deadlift_aux',
   'ohp_aux',
 ];
+
+/// Back exercise keys. TMs default to deadlift × [_kAuxTmRatio].
+const _backKeys = ['barbell_rows', 'dumbbell_rows', 'pulldowns'];
+
+/// All non-main lift keys that need a TM saved to DB.
+const _allNonMainKeys = [..._allAuxKeys, ..._backKeys];
+
+const _defaultAux = <String, String>{
+  'squat':          'front_squat',
+  'bench_press':    'close_grip_bench',
+  'deadlift':       'deadlift_aux',
+  'overhead_press': 'ohp_aux',
+};
 
 /// Aux options per main lift (slot key → list of named options).
 const auxOptions = <String, List<({String key, String label})>>{
@@ -80,14 +81,7 @@ const auxOptions = <String, List<({String key, String label})>>{
   ],
 };
 
-const _defaultAux = <String, String>{
-  'squat':          'front_squat',
-  'bench_press':    'close_grip_bench',
-  'deadlift':       'deadlift_aux',
-  'overhead_press': 'ohp_aux',
-};
-
-// ── State ────────────────────────────────────────────────────────────────
+// ── State ──────────────────────────────────────────────────────────────────────
 
 class SetupState {
   const SetupState({
@@ -102,13 +96,13 @@ class SetupState {
     this.errorMessage,
   });
 
-  final ProgramFrequency?   selectedFrequency;
+  final ProgramFrequency? selectedFrequency;
 
   /// Main lift TMs (required). Keys: squat, bench_press, deadlift, overhead_press.
   final Map<String, double> trainingMaxes;
 
   /// Auxiliary lift TMs (optional). Keys from [_allAuxKeys].
-  /// Missing keys fall back to mainMax * 0.9 in saveAndGenerate().
+  /// Missing keys fall back to mainMax × [_kAuxTmRatio] in saveAndGenerate().
   final Map<String, double> auxTrainingMaxes;
 
   /// Single @8% ratio per main lift. Defaults to 0.9 (workbook Quick Setup).
@@ -171,7 +165,7 @@ class SetupNotifier extends Notifier<SetupState> {
   }
 
   /// Update a single auxiliary lift TM. Pass 0 to clear (falls back to
-  /// mainMax * 0.9 at save time).
+  /// mainMax × [_kAuxTmRatio] at save time).
   void updateAuxTrainingMax(String liftId, double value) {
     final updated = Map<String, double>.from(state.auxTrainingMaxes);
     if (value > 0) {
@@ -237,17 +231,18 @@ class SetupNotifier extends Notifier<SetupState> {
     state = state.copyWith(isSaving: true, clearError: true);
 
     try {
+      final db           = ref.read(databaseProvider);
       final liftRepo     = ref.read(liftRepositoryProvider);
       final tmRepo       = ref.read(trainingMaxRepositoryProvider);
       final programRepo  = ref.read(programRepositoryProvider);
       final generatorSvc = ref.read(workoutGeneratorServiceProvider);
-      final now       = DateTime.now();
-      final frequency = state.selectedFrequency!;
+      final now          = DateTime.now();
+      final frequency    = state.selectedFrequency!;
 
-      await programRepo.deactivateAll();
-
-      final liftDbIds = <String, int>{};
-      for (final liftId in _liftNameMap.keys) {
+      // ── Resolve DB lift IDs ──────────────────────────────────────────
+      final allLiftKeys = [..._mainLiftKeys, ..._allNonMainKeys];
+      final liftDbIds   = <String, int>{};
+      for (final liftId in allLiftKeys) {
         final lift = await liftRepo.getLiftByName(liftId);
         if (lift != null) liftDbIds[liftId] = lift.id;
       }
@@ -257,34 +252,10 @@ class SetupNotifier extends Notifier<SetupState> {
         }
       }
 
-      for (final entry in state.liftNames.entries) {
-        final slotKey = entry.key;
-        final label   = entry.value;
-        final dbId    = liftDbIds[slotKey];
-        if (dbId == null) continue;
-        await liftRepo.updateLift(LiftsCompanion(
-          id:          Value(dbId),
-          displayName: Value(label),
-        ));
-      }
-
-      // ── Save main lift TMs (including Single @8%) ─────────────────────
-      for (final key in _mainLiftKeys) {
-        final tm      = state.trainingMaxes[key]!;
-        final s8p     = state.singleEightPercentages[key] ?? kDefaultSingleAt8;
-        final dbId    = liftDbIds[key]!;
-        await tmRepo.saveMax(TrainingMaxesCompanion.insert(
-          liftId:                dbId,
-          value:                 tm,
-          singleEightPercentage: Value(s8p),
-          effectiveDate:         now,
-        ));
-      }
-
-      // ── Build full TM map for program generation ───────────────────────
-      final fullTmMap = <String, double>{
-        for (final key in _mainLiftKeys)
-          key: state.trainingMaxes[key]!,
+      // ── Build full TM map ────────────────────────────────────────────
+      final deadliftTm = state.trainingMaxes['deadlift']!;
+      final fullTmMap  = <String, double>{
+        for (final key in _mainLiftKeys) key: state.trainingMaxes[key]!,
       };
 
       for (final mainKey in _mainLiftKeys) {
@@ -294,65 +265,81 @@ class SetupNotifier extends Notifier<SetupState> {
           final userValue = state.auxTrainingMaxes[auxKey];
           fullTmMap[auxKey] = (userValue != null && userValue > 0)
               ? userValue
-              : mainTm * 0.9;
+              : mainTm * _kAuxTmRatio;
         }
       }
 
-      const backKeys = ['barbell_rows', 'dumbbell_rows', 'pulldowns'];
-      final deadliftTm = state.trainingMaxes['deadlift']!;
-      for (final k in backKeys) {
-        fullTmMap[k] = deadliftTm * 0.9;
+      for (final k in _backKeys) {
+        fullTmMap[k] = deadliftTm * _kAuxTmRatio;
       }
 
-      // ── Save auxiliary TMs to DB ──────────────────────────────────────
-      for (final auxKey in _allAuxKeys) {
-        final dbId = liftDbIds[auxKey];
-        if (dbId == null) continue;
-        await tmRepo.saveMax(TrainingMaxesCompanion.insert(
-          liftId:        dbId,
-          value:         fullTmMap[auxKey]!,
-          effectiveDate: now,
-        ));
-      }
-      for (final k in backKeys) {
-        final dbId = liftDbIds[k];
-        if (dbId == null) continue;
-        await tmRepo.saveMax(TrainingMaxesCompanion.insert(
-          liftId:        dbId,
-          value:         fullTmMap[k]!,
-          effectiveDate: now,
-        ));
-      }
+      // ── Everything inside a single DB transaction ────────────────────
+      await db.transaction(() async {
+        await programRepo.deactivateAll();
 
-      // ── Create program + 21 weeks ─────────────────────────────────────
-      final programId = await programRepo.saveProgram(
-        ProgramsCompanion.insert(
-          name:      'My Program',
-          frequency: frequency.name,
-          createdAt: now,
-          updatedAt: now,
-          isActive:  const Value(true),
-        ),
-      );
+        // Update display names
+        for (final entry in state.liftNames.entries) {
+          final dbId = liftDbIds[entry.key];
+          if (dbId == null) continue;
+          await liftRepo.updateLift(LiftsCompanion(
+            id:          Value(dbId),
+            displayName: Value(entry.value),
+          ));
+        }
 
-      final weeks = <({int id, int weekNumber})>[];
-      for (int w = 1; w <= 21; w++) {
-        final weekId = await programRepo.saveWeek(
-          WorkoutWeeksCompanion.insert(
-            programId:  programId,
-            weekNumber: w,
+        // Save main lift TMs (including Single @8%)
+        for (final key in _mainLiftKeys) {
+          final s8p  = state.singleEightPercentages[key] ?? kDefaultSingleAt8;
+          final dbId = liftDbIds[key]!;
+          await tmRepo.saveMax(TrainingMaxesCompanion.insert(
+            liftId:                dbId,
+            value:                 state.trainingMaxes[key]!,
+            singleEightPercentage: Value(s8p),
+            effectiveDate:         now,
+          ));
+        }
+
+        // Save all non-main TMs in one consolidated loop
+        for (final key in _allNonMainKeys) {
+          final dbId = liftDbIds[key];
+          if (dbId == null) continue;
+          await tmRepo.saveMax(TrainingMaxesCompanion.insert(
+            liftId:        dbId,
+            value:         fullTmMap[key]!,
+            effectiveDate: now,
+          ));
+        }
+
+        // Create program + 21 weeks
+        final programId = await programRepo.saveProgram(
+          ProgramsCompanion.insert(
+            name:      'My Program',
+            frequency: frequency.name,
+            createdAt: now,
+            updatedAt: now,
+            isActive:  const Value(true),
           ),
         );
-        weeks.add((id: weekId, weekNumber: w));
-      }
 
-      await generatorSvc.generateFullProgram(
-        programId:     programId,
-        frequency:     frequency,
-        weeks:         weeks,
-        trainingMaxes: fullTmMap,
-        liftDbIds:     liftDbIds,
-      );
+        final weeks = <({int id, int weekNumber})>[];
+        for (int w = 1; w <= 21; w++) {
+          final weekId = await programRepo.saveWeek(
+            WorkoutWeeksCompanion.insert(
+              programId:  programId,
+              weekNumber: w,
+            ),
+          );
+          weeks.add((id: weekId, weekNumber: w));
+        }
+
+        await generatorSvc.generateFullProgram(
+          programId:     programId,
+          frequency:     frequency,
+          weeks:         weeks,
+          trainingMaxes: fullTmMap,
+          liftDbIds:     liftDbIds,
+        );
+      });
 
       state = state.copyWith(isSaving: false);
     } catch (e) {
