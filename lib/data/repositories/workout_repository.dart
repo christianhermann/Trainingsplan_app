@@ -16,6 +16,15 @@ class WorkoutRepository {
             ..orderBy([(t) => OrderingTerm.asc(t.displayOrder)]))
           .get();
 
+  /// Returns every [ExercisePrescription] that references [liftId],
+  /// ordered by workoutDayId ascending so callers can correlate with days.
+  Future<List<ExercisePrescription>> getPrescriptionsForLift(
+      int liftId) =>
+      (_db.select(_db.exercisePrescriptions)
+            ..where((t) => t.liftId.equals(liftId))
+            ..orderBy([(t) => OrderingTerm.asc(t.workoutDayId)]))
+          .get();
+
   Future<int> savePrescription(ExercisePrescriptionsCompanion companion) =>
       _db
           .into(_db.exercisePrescriptions)
