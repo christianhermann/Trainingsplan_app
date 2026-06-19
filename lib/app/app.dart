@@ -12,7 +12,9 @@ class TrainingsplanApp extends ConsumerWidget {
     final router = ref.watch(goRouterProvider);
     return MaterialApp.router(
       title: 'Trainingsplan',
-      theme: appTheme,
+      theme:      appTheme,
+      darkTheme:  appThemeDark,
+      themeMode:  ThemeMode.system,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );
