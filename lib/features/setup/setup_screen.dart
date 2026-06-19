@@ -6,7 +6,7 @@ import '../../data/catalogue/lift_catalogue.dart';
 import '../../domain/models/enums.dart';
 import 'setup_provider.dart';
 
-// ── Screen ───────────────────────────────────────────────────────────────────
+// ── Screen ────────────────────────────────────────────────────────────────────────────
 
 class SetupScreen extends ConsumerWidget {
   const SetupScreen({super.key});
@@ -17,7 +17,7 @@ class SetupScreen extends ConsumerWidget {
     final notifier = ref.read(setupProvider.notifier);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      // No backgroundColor override — inherits from theme (high-contrast surface)
       appBar: AppBar(title: const Text('Setup')),
       body: SingleChildScrollView(
         child: Padding(
@@ -36,7 +36,7 @@ class SetupScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 32),
 
-              // ── Frequency ────────────────────────────────────────────────────────
+              // ── Frequency ────────────────────────────────────────────────────────────────
               Text('Training Frequency',
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
@@ -46,7 +46,7 @@ class SetupScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 32),
 
-              // ── Training maxes ───────────────────────────────────────────────
+              // ── Training maxes ────────────────────────────────────────────────────────
               Text('Training Maxes',
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
@@ -61,17 +61,14 @@ class SetupScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 32),
 
-              // ── Lift selection ───────────────────────────────────────────────
+              // ── Lift selection ────────────────────────────────────────────────────────
               Text('Lift Selection',
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 4),
               Text(
                 'Tap any lift to choose from presets or enter a custom name.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.55)),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 12),
               _LiftSelectionSection(
@@ -80,7 +77,7 @@ class SetupScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
 
-              // ── Error banner ──────────────────────────────────────────────────
+              // ── Error banner ───────────────────────────────────────────────────────────
               if (s.errorMessage != null) ...[
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -95,7 +92,7 @@ class SetupScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
               ],
 
-              // ── Action buttons ───────────────────────────────────────────────
+              // ── Action buttons ────────────────────────────────────────────────────────
               Row(
                 children: [
                   Expanded(
@@ -136,7 +133,7 @@ class SetupScreen extends ConsumerWidget {
   }
 }
 
-// ── Lift selection section ────────────────────────────────────────────────
+// ── Lift selection section ────────────────────────────────────────────────────────────────
 
 class _LiftSelectionSection extends StatelessWidget {
   const _LiftSelectionSection({
@@ -190,7 +187,7 @@ class _LiftSelectionSection extends StatelessWidget {
   }
 }
 
-// ── Group card ────────────────────────────────────────────────────────────────────
+// ── Group card ────────────────────────────────────────────────────────────────────────────────
 
 class _LiftGroupCard extends StatelessWidget {
   const _LiftGroupCard({
@@ -207,6 +204,7 @@ class _LiftGroupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs       = Theme.of(context).colorScheme;
+    final tt       = Theme.of(context).textTheme;
     final mainSlot = slotKeys.first;
     final mainName = liftNames[mainSlot] ?? liftDefaults[mainSlot] ?? mainSlot;
 
@@ -215,7 +213,7 @@ class _LiftGroupCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      color:  const Color(0xFF1E1E1E),
+      // No hardcoded color — uses cardTheme.color from theme.dart
       shape:  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
         tilePadding:     const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -226,19 +224,14 @@ class _LiftGroupCard extends StatelessWidget {
           children: [
             Text(
               groupLabel,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: cs.onSurface.withValues(alpha: 0.5),
-                  fontSize: 11),
+              style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
             ),
             if (!isBackGroup) ...[
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   mainName,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyLarge
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                  style: tt.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
             ] else
@@ -247,10 +240,7 @@ class _LiftGroupCard extends StatelessWidget {
         ),
         trailing: Text(
           '${slotKeys.length} slot${slotKeys.length > 1 ? 's' : ''}',
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(color: cs.primary),
+          style: tt.labelSmall?.copyWith(color: cs.primary),
         ),
         children: [
           const Divider(height: 1),
@@ -286,7 +276,7 @@ class _LiftGroupCard extends StatelessWidget {
   }
 }
 
-// ── Slot tile ────────────────────────────────────────────────────────────────────
+// ── Slot tile ────────────────────────────────────────────────────────────────────────────────
 
 class _LiftSlotTile extends StatelessWidget {
   const _LiftSlotTile({
@@ -305,6 +295,7 @@ class _LiftSlotTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return InkWell(
       onTap:        onTap,
       borderRadius: BorderRadius.circular(8),
@@ -324,23 +315,18 @@ class _LiftSlotTile extends StatelessWidget {
               child: Text(
                 badgeLabel,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize:   10,
+                style: tt.labelSmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: isMain
-                      ? cs.primary
-                      : cs.onSurface.withValues(alpha: 0.5),
+                  color: isMain ? cs.primary : cs.onSurfaceVariant,
                 ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(currentName,
-                  style: Theme.of(context).textTheme.bodyMedium),
+              child: Text(currentName, style: tt.bodyMedium),
             ),
             Icon(Icons.chevron_right,
-                size: 18,
-                color: cs.onSurface.withValues(alpha: 0.4)),
+                size: 18, color: cs.onSurfaceVariant),
           ],
         ),
       ),
@@ -348,7 +334,7 @@ class _LiftSlotTile extends StatelessWidget {
   }
 }
 
-// ── Lift picker bottom sheet ─────────────────────────────────────────────────
+// ── Lift picker bottom sheet ─────────────────────────────────────────────────────────────
 
 class _LiftPickerSheet extends StatefulWidget {
   const _LiftPickerSheet({
@@ -395,6 +381,7 @@ class _LiftPickerSheetState extends State<_LiftPickerSheet> {
   Widget build(BuildContext context) {
     final presets = liftCatalogue[widget.slotKey] ?? [];
     final cs      = Theme.of(context).colorScheme;
+    final tt      = Theme.of(context).textTheme;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
@@ -402,9 +389,10 @@ class _LiftPickerSheetState extends State<_LiftPickerSheet> {
       maxChildSize:     0.85,
       expand:           false,
       builder: (_, scrollCtrl) => Container(
-        decoration: const BoxDecoration(
-          color:        Color(0xFF1E1E1E),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          // Use theme surface container — visible against scaffold on both modes
+          color:        cs.surfaceContainer,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -416,7 +404,7 @@ class _LiftPickerSheetState extends State<_LiftPickerSheet> {
                 margin: const EdgeInsets.only(top: 12, bottom: 8),
                 width: 40, height: 4,
                 decoration: BoxDecoration(
-                  color:        cs.outlineVariant,
+                  color:        cs.onSurfaceVariant.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -427,10 +415,7 @@ class _LiftPickerSheetState extends State<_LiftPickerSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Text(
                 liftDefaults[widget.slotKey] ?? widget.slotKey,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
             Divider(height: 1, color: cs.outlineVariant),
@@ -441,18 +426,18 @@ class _LiftPickerSheetState extends State<_LiftPickerSheet> {
                 controller: scrollCtrl,
                 itemCount:  presets.length,
                 itemBuilder: (_, i) {
-                  final preset          = presets[i];
+                  final preset           = presets[i];
                   final isCustomSentinel = preset == kCustomEntry;
                   final isCurrent        = !isCustomSentinel &&
                       preset == widget.currentName;
 
                   if (isCustomSentinel) {
                     return _CustomEntryTile(
-                      ctrl:        _ctrl,
-                      showField:   _showCustomField,
-                      onToggle:    () => setState(
+                      ctrl:      _ctrl,
+                      showField: _showCustomField,
+                      onToggle:  () => setState(
                           () => _showCustomField = !_showCustomField),
-                      onConfirm:   () {
+                      onConfirm: () {
                         final val = _ctrl.text.trim();
                         if (val.isNotEmpty) _select(val);
                       },
@@ -476,7 +461,7 @@ class _LiftPickerSheetState extends State<_LiftPickerSheet> {
   }
 }
 
-// ── Custom entry tile ────────────────────────────────────────────────────────────
+// ── Custom entry tile ────────────────────────────────────────────────────────────────────
 
 class _CustomEntryTile extends StatelessWidget {
   const _CustomEntryTile({
@@ -537,12 +522,12 @@ class _CustomEntryTile extends StatelessWidget {
   }
 }
 
-// ── Frequency selector ──────────────────────────────────────────────────────────
+// ── Frequency selector ───────────────────────────────────────────────────────────────────
 
 class _FrequencySelector extends StatelessWidget {
   const _FrequencySelector(
       {required this.selected, required this.onSelected});
-  final ProgramFrequency?              selected;
+  final ProgramFrequency?               selected;
   final void Function(ProgramFrequency) onSelected;
 
   @override
@@ -588,36 +573,38 @@ class _FrequencyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF5A9FFF)
-              : const Color(0xFF1E1E1E),
+          color: isSelected ? cs.primary : cs.surfaceContainer,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF5A9FFF)
-                : const Color(0xFF333333),
+            color: isSelected ? cs.primary : cs.outline,
             width: 2,
           ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(label,
-                style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                    color: isSelected
-                        ? Colors.white
-                        : const Color(0xFF888888))),
+            Text(
+              label,
+              style: tt.headlineMedium?.copyWith(
+                color: isSelected ? cs.onPrimary : cs.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(subtitle,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: isSelected
-                        ? const Color(0xFFDDDDDD)
-                        : const Color(0xFF666666)),
-                textAlign: TextAlign.center),
+            Text(
+              subtitle,
+              style: tt.labelSmall?.copyWith(
+                color: isSelected ? cs.onPrimary.withValues(alpha: 0.85) : cs.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -625,7 +612,7 @@ class _FrequencyButton extends StatelessWidget {
   }
 }
 
-// ── Training maxes (main + collapsible auxiliary) ──────────────────────────
+// ── Training maxes (main + collapsible auxiliary) ───────────────────────────────────
 
 class _TrainingMaxesInput extends StatelessWidget {
   const _TrainingMaxesInput({
@@ -654,7 +641,6 @@ class _TrainingMaxesInput extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ─ Main lifts ─────────────────────────────────────────────────────────────
         for (final slotKey in _mainSlots) ...[
           _MaxInput(
             liftId:               slotKey,
@@ -673,7 +659,6 @@ class _TrainingMaxesInput extends StatelessWidget {
 
         const SizedBox(height: 8),
 
-        // ─ Auxiliary lifts (collapsible) ─────────────────────────────────────────
         _AuxiliaryMaxesSection(
           mainMaxes:       mainMaxes,
           auxMaxes:        auxMaxes,
@@ -685,7 +670,7 @@ class _TrainingMaxesInput extends StatelessWidget {
   }
 }
 
-// ── Auxiliary maxes collapsible section ──────────────────────────────────────
+// ── Auxiliary maxes collapsible section ──────────────────────────────────────────────────
 
 class _AuxiliaryMaxesSection extends StatelessWidget {
   const _AuxiliaryMaxesSection({
@@ -711,9 +696,10 @@ class _AuxiliaryMaxesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
 
     return Card(
-      color:  const Color(0xFF1E1E1E),
+      // No hardcoded color — uses cardTheme.color
       shape:  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: EdgeInsets.zero,
       child: ExpansionTile(
@@ -723,31 +709,27 @@ class _AuxiliaryMaxesSection extends StatelessWidget {
         collapsedShape:  const Border(),
         title: Text(
           'Auxiliary Maxes',
-          style: Theme.of(context)
-              .textTheme
-              .bodyLarge
-              ?.copyWith(fontWeight: FontWeight.w600),
+          style: tt.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
           'Optional — defaults to main max × 0.9',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: cs.onSurface.withValues(alpha: 0.45)),
+          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),
         trailing: Icon(
           Icons.tune,
           size: 18,
-          color: cs.onSurface.withValues(alpha: 0.4),
+          color: cs.onSurfaceVariant,
         ),
         children: [
           const Divider(height: 1),
           const SizedBox(height: 12),
           for (final row in _auxRows) ...[
             _AuxMaxRow(
-              slotKey:    row.slot,
-              parentKey:  row.parent,
-              displayName: liftNames[row.slot] ??
-                           liftDefaults[row.slot] ??
-                           row.slot,
+              slotKey:       row.slot,
+              parentKey:     row.parent,
+              displayName:   liftNames[row.slot] ??
+                             liftDefaults[row.slot] ??
+                             row.slot,
               parentMainMax: mainMaxes[row.parent],
               currentAuxMax: auxMaxes[row.slot],
               onChanged:     (v) => onAuxMaxUpdated(row.slot, v),
@@ -810,6 +792,7 @@ class _AuxMaxRowState extends State<_AuxMaxRow> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -817,7 +800,7 @@ class _AuxMaxRowState extends State<_AuxMaxRow> {
           flex: 5,
           child: Text(
             widget.displayName,
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: tt.bodyMedium,
           ),
         ),
         const SizedBox(width: 12),
@@ -826,14 +809,13 @@ class _AuxMaxRowState extends State<_AuxMaxRow> {
           child: TextField(
             controller:   _ctrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: tt.bodyMedium,
             decoration: InputDecoration(
               isDense:     true,
               hintText:    _autoHint,
-              hintStyle:   Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: cs.onSurface.withValues(alpha: 0.35)),
+              hintStyle:   tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               suffixText:  'kg',
-              suffixStyle: Theme.of(context).textTheme.bodySmall,
+              suffixStyle: tt.bodySmall,
               contentPadding: const EdgeInsets.symmetric(
                   horizontal: 10, vertical: 10),
             ),
@@ -848,7 +830,7 @@ class _AuxMaxRowState extends State<_AuxMaxRow> {
   }
 }
 
-// ── Max input (main lifts) ──────────────────────────────────────────────────────
+// ── Max input (main lifts) ──────────────────────────────────────────────────────────────────
 
 /// Renders the training-max text field and the Single @8% field for one main lift.
 class _MaxInput extends StatefulWidget {
@@ -884,7 +866,6 @@ class _MaxInputState extends State<_MaxInput> {
         text: widget.currentMax != null
             ? widget.currentMax.toString()
             : '');
-    // Pre-fill with the current value, formatting 0.9 → '0.9'
     _s8Ctrl = TextEditingController(
         text: widget.singleEightPct.toString());
   }
@@ -899,18 +880,16 @@ class _MaxInputState extends State<_MaxInput> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Lift name label
-        Text(widget.displayName,
-            style: Theme.of(context).textTheme.bodyLarge),
+        Text(widget.displayName, style: tt.bodyLarge),
         const SizedBox(height: 8),
-        // Two fields side-by-side: Training Max  |  Single @8%
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Training Max field ────────────────────────────────────
+            // ── Training Max field ─────────────────────────────────────────
             Expanded(
               flex: 3,
               child: TextField(
@@ -920,7 +899,7 @@ class _MaxInputState extends State<_MaxInput> {
                 decoration: InputDecoration(
                   hintText:    widget.hintText,
                   suffixText:  'kg',
-                  suffixStyle: Theme.of(context).textTheme.bodyMedium,
+                  suffixStyle: tt.bodyMedium,
                 ),
                 onChanged: (v) {
                   final parsed = double.tryParse(v);
@@ -929,7 +908,7 @@ class _MaxInputState extends State<_MaxInput> {
               ),
             ),
             const SizedBox(width: 12),
-            // ── Single @8% field ─────────────────────────────────────
+            // ── Single @8% field ──────────────────────────────────────────
             Expanded(
               flex: 2,
               child: Column(
@@ -937,8 +916,8 @@ class _MaxInputState extends State<_MaxInput> {
                 children: [
                   Text(
                     'Single @8%',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: cs.onSurface.withValues(alpha: 0.6)),
+                    style: tt.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant),
                   ),
                   const SizedBox(height: 4),
                   TextField(
@@ -946,17 +925,15 @@ class _MaxInputState extends State<_MaxInput> {
                     keyboardType: const TextInputType.numberWithOptions(
                         decimal: true),
                     decoration: InputDecoration(
-                      isDense: true,
+                      isDense:  true,
                       hintText: '0.9',
-                      hintStyle: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(
-                              color: cs.onSurface.withValues(alpha: 0.35)),
+                      hintStyle: tt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 12),
                     ),
                     onChanged: (v) {
                       final parsed = double.tryParse(v);
-                      // Accept values in (0, 1] only; ignore garbage input.
                       if (parsed != null && parsed > 0 && parsed <= 1) {
                         widget.onSingleEightChanged(parsed);
                       }
