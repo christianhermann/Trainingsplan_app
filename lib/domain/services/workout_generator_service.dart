@@ -3,17 +3,8 @@
 // ROLE: DB orchestrator for full 21-week program generation and mid-cycle
 //       Training Max regeneration.
 //
-// This service sits at the infrastructure layer. It:
-//   1. Reads settings, frequency templates, intensity points, and rep-target
-//      points (via seeders / SettingsRepository).
-//   2. Persists WorkoutDay and ExercisePrescription rows to the Drift DB.
-//   3. Delegates all pure prescription math to [WorkoutGenerationService]
-//      (workout_generation_service.dart), which has zero DB dependencies.
-//
-// Wired into the app via [workoutGeneratorServiceProvider] (Riverpod).
-// Called by SetupNotifier.saveAndGenerate() in setup_provider.dart.
-//
-// See docs/workbook--logic.md for the full prescription calculation spec.
+// Wired via [workoutGeneratorServiceProvider] (Riverpod).
+// Called by SetupNotifier.saveAndGenerate() and EditTmNotifier.save().
 
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,9 +27,7 @@ class WorkoutGeneratorService {
 
   final _generationSvc = WorkoutGenerationService();
 
-  static const _defaultIncrement = 2.5;
-
-  // ── Full-program generation ─────────────────────────────────────────────────
+  // -- Full-program generation ------------------------------------------------
 
   Future<void> generateFullProgram({
     required int programId,
@@ -46,22 +35,18 @@ class WorkoutGeneratorService {
     required List<({int id, int weekNumber})> weeks,
     required Map<String, double> trainingMaxes,
     required Map<String, int> liftDbIds,
-  }) async {
-    final settingsRepo = _ref.read(settingsRepositoryProvider);
-    final programRepo  = _ref.read(programRepositoryProvider);
-    final workoutRepo  = _ref.read(workoutRepositoryProvider);
-    await _generateWeeks(
-      programRepo:   programRepo,
-      workoutRepo:   workoutRepo,
-      settingsRepo:  settingsRepo,
-      frequency:     frequency,
-      weeks:         weeks,
-      trainingMaxes: trainingMaxes,
-      liftDbIds:     liftDbIds,
-    );
-  }
+  }) =>
+      _generateWeeks(
+        programRepo:   _ref.read(programRepositoryProvider),
+        workoutRepo:   _ref.read(workoutRepositoryProvider),
+        settingsRepo:  _ref.read(settingsRepositoryProvider),
+        frequency:     frequency,
+        weeks:         weeks,
+        trainingMaxes: trainingMaxes,
+        liftDbIds:     liftDbIds,
+      );
 
-  // ── Mid-cycle regeneration ─────────────────────────────────────────────────
+  // -- Mid-cycle regeneration ------------------------------------------------
 
   /// Deletes all non-completed days from [fromWeek] onward, then re-generates
   /// them with the supplied [trainingMaxes]. Completed days are never touched.
@@ -72,14 +57,13 @@ class WorkoutGeneratorService {
     required Map<String, double> trainingMaxes,
     required Map<String, int> liftDbIds,
   }) async {
-    final settingsRepo = _ref.read(settingsRepositoryProvider);
     final programRepo  = _ref.read(programRepositoryProvider);
     final workoutRepo  = _ref.read(workoutRepositoryProvider);
+    final settingsRepo = _ref.read(settingsRepositoryProvider);
 
     await programRepo.deleteFutureDaysForProgram(programId, fromWeek);
 
-    final allWeeks    = await programRepo.getWeeksForProgram(programId);
-    final futureWeeks = allWeeks
+    final futureWeeks = (await programRepo.getWeeksForProgram(programId))
         .where((w) => w.weekNumber >= fromWeek)
         .map((w) => (id: w.id, weekNumber: w.weekNumber))
         .toList();
@@ -97,26 +81,22 @@ class WorkoutGeneratorService {
     );
   }
 
-  // ── Shared generation kernel ─────────────────────────────────────────────────
+  // -- Shared generation kernel ----------------------------------------------
 
   Future<void> _generateWeeks({
-    required ProgramRepository programRepo,
-    required WorkoutRepository workoutRepo,
+    required ProgramRepository  programRepo,
+    required WorkoutRepository  workoutRepo,
     required SettingsRepository settingsRepo,
-    required ProgramFrequency frequency,
+    required ProgramFrequency   frequency,
     required List<({int id, int weekNumber})> weeks,
     required Map<String, double> trainingMaxes,
-    required Map<String, int> liftDbIds,
+    required Map<String, int>    liftDbIds,
   }) async {
     final settings          = await settingsRepo.getSettings();
-    final roundingIncrement = settings?.roundingIncrement ?? _defaultIncrement;
+    final roundingIncrement = settings?.roundingIncrement ?? 2.5;
     final roundingMode      = RoundingMode.fromString(settings?.roundingMode);
 
-    final allTemplates  = FrequencyTemplateSeeder.generateFrequencyTemplates();
-    final allIntensity  = IntensitySeeder.generateIntensityPoints();
-    final allRepTargets = RepTargetSeeder.generateRepTargetPoints();
-
-    final freqTemplates = allTemplates
+    final freqTemplates = FrequencyTemplateSeeder.generateFrequencyTemplates()
         .where((t) => t.frequency == frequency)
         .toList();
 
@@ -125,14 +105,13 @@ class WorkoutGeneratorService {
           'No FrequencyTemplate entries for frequency: ${frequency.name}');
     }
 
-    final dayIndices = freqTemplates
-        .map((t) => t.dayIndex)
-        .toSet()
-        .toList()
-      ..sort();
+    final allIntensity  = IntensitySeeder.generateIntensityPoints();
+    final allRepTargets = RepTargetSeeder.generateRepTargetPoints();
+    final dayIndices    = (freqTemplates.map((t) => t.dayIndex).toSet().toList()
+      ..sort());
+    final now = DateTime.now();
 
-    final now   = DateTime.now();
-    final tmMap = <String, TrainingMax>{
+    final tmMap = {
       for (final e in trainingMaxes.entries)
         e.key: TrainingMax(
           id:                    '${e.key}_snap',
@@ -150,7 +129,7 @@ class WorkoutGeneratorService {
           WorkoutDaysCompanion.insert(
             workoutWeekId: week.id,
             dayIndex:      dayIndex,
-            title: Value('Week ${week.weekNumber} — Day ${dayIndex + 1}'),
+            title: Value('Week ${week.weekNumber} - Day ${dayIndex + 1}'),
           ),
         );
 
