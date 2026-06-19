@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/persistence/database.dart';
@@ -68,6 +69,7 @@ class _SessionDetail extends StatelessWidget {
               prescription: p,
               log:          log,
               liftName:     lift?.displayName ?? 'Unknown',
+              liftId:       p.liftId,
               outcome:      outcome,
               delta:        delta,
             ),
@@ -93,6 +95,7 @@ class _ExerciseHistoryCard extends StatelessWidget {
     required this.prescription,
     required this.log,
     required this.liftName,
+    required this.liftId,
     required this.outcome,
     required this.delta,
   });
@@ -100,6 +103,7 @@ class _ExerciseHistoryCard extends StatelessWidget {
   final ExercisePrescription prescription;
   final ExerciseLog?         log;
   final String               liftName;
+  final int                  liftId;
   final ProgressOutcome?     outcome;
   final double?              delta;
 
@@ -112,102 +116,114 @@ class _ExerciseHistoryCard extends StatelessWidget {
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.goNamed(
+          'lift-history',
+          pathParameters: {'liftId': liftId.toString()},
+          queryParameters: {'name': liftName},
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
 
-            // ── Lift name + logged icon ────────────────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    liftName,
-                    style: tt.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+              // ── Lift name + logged icon ──────────────────────────────────
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      liftName,
+                      style: tt.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-                Icon(
-                  isLogged
-                      ? Icons.check_circle_rounded
-                      : Icons.radio_button_unchecked,
-                  color: isLogged ? cs.primary : cs.outline,
-                  size: 20,
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 10),
-
-            // ── Prescription + result chips ─────────────────────────────────
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                _Chip(
-                  p.workingWeight % 1 == 0
-                      ? '${p.workingWeight.toInt()} kg'
-                      : '${p.workingWeight.toStringAsFixed(1)} kg',
-                  highlight: true,
-                ),
-                _Chip('${p.setGoal} sets'),
-                _Chip('${p.repsPerNormalSet} reps'),
-                _Chip('Target \u2265 ${p.repOutTarget}', accent: true),
-                if (log?.repsOnLastSet != null)
-                  _Chip('Logged: ${log!.repsOnLastSet} reps', success: true),
-              ],
-            ),
-
-            // ── Outcome + TM delta chip ──────────────────────────────────────
-            if (outcome != null && delta != null) ...[
-              const SizedBox(height: 8),
-              _OutcomeChip(outcome: outcome!, delta: delta!),
-            ],
-
-            // ── Notes ───────────────────────────────────────────────────────────
-            if (log?.notes != null && log!.notes!.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.notes, size: 16, color: cs.outline),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(log!.notes!, style: tt.bodyMedium),
+                  Icon(
+                    isLogged
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked,
+                    color: isLogged ? cs.primary : cs.outline,
+                    size: 20,
                   ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right,
+                      size: 16, color: cs.outline),
                 ],
               ),
-            ],
 
-            // ── Video link ───────────────────────────────────────────────────────
-            if (log?.videoUrl != null && log!.videoUrl!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              InkWell(
-                onTap: () async {
-                  final uri = Uri.tryParse(log!.videoUrl!);
-                  if (uri != null && await canLaunchUrl(uri)) {
-                    await launchUrl(uri,
-                        mode: LaunchMode.externalApplication);
-                  }
-                },
-                child: Row(
+              const SizedBox(height: 10),
+
+              // ── Prescription + result chips ─────────────────────────────
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  _Chip(
+                    p.workingWeight % 1 == 0
+                        ? '${p.workingWeight.toInt()} kg'
+                        : '${p.workingWeight.toStringAsFixed(1)} kg',
+                    highlight: true,
+                  ),
+                  _Chip('${p.setGoal} sets'),
+                  _Chip('${p.repsPerNormalSet} reps'),
+                  _Chip('Target \u2265 ${p.repOutTarget}', accent: true),
+                  if (log?.repsOnLastSet != null)
+                    _Chip('Logged: ${log!.repsOnLastSet} reps',
+                        success: true),
+                ],
+              ),
+
+              // ── Outcome + TM delta chip ────────────────────────────────
+              if (outcome != null && delta != null) ...[
+                const SizedBox(height: 8),
+                _OutcomeChip(outcome: outcome!, delta: delta!),
+              ],
+
+              // ── Notes ──────────────────────────────────────────────────
+              if (log?.notes != null && log!.notes!.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.videocam, size: 16, color: cs.primary),
+                    Icon(Icons.notes, size: 16, color: cs.outline),
                     const SizedBox(width: 6),
-                    Text(
-                      'Watch video',
-                      style: TextStyle(
-                        color: cs.primary,
-                        decoration: TextDecoration.underline,
-                      ),
+                    Expanded(
+                      child: Text(log!.notes!, style: tt.bodyMedium),
                     ),
                   ],
                 ),
-              ),
+              ],
+
+              // ── Video link ─────────────────────────────────────────────
+              if (log?.videoUrl != null && log!.videoUrl!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () async {
+                    final uri = Uri.tryParse(log!.videoUrl!);
+                    if (uri != null && await canLaunchUrl(uri)) {
+                      await launchUrl(uri,
+                          mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      Icon(Icons.videocam, size: 16, color: cs.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Watch video',
+                        style: TextStyle(
+                          color: cs.primary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -219,7 +235,7 @@ class _ExerciseHistoryCard extends StatelessWidget {
 class _OutcomeChip extends StatelessWidget {
   const _OutcomeChip({required this.outcome, required this.delta});
   final ProgressOutcome outcome;
-  final double          delta; // e.g. 0.01 = +1.0%
+  final double          delta;
 
   @override
   Widget build(BuildContext context) {
@@ -268,7 +284,6 @@ class _OutcomeChip extends StatelessWidget {
     );
   }
 
-  /// Human-readable label for each [ProgressOutcome].
   static String _outcomeLabel(ProgressOutcome o) => switch (o) {
     ProgressOutcome.belowBy2 => 'Missed by 2+',
     ProgressOutcome.belowBy1 => 'Missed by 1',
@@ -280,7 +295,6 @@ class _OutcomeChip extends StatelessWidget {
     ProgressOutcome.plus5    => 'Beat by 5+',
   };
 
-  /// Formats delta as a percentage string: +1.0%, No change, -2.0%
   static String _deltaLabel(double delta) {
     if (delta == 0) return 'No change';
     final pct = (delta * 100).toStringAsFixed(1);
@@ -288,7 +302,7 @@ class _OutcomeChip extends StatelessWidget {
   }
 }
 
-// ── Shared chip ────────────────────────────────────────────────────────────────────
+// ── Shared chip ─────────────────────────────────────────────────────────────────
 
 class _Chip extends StatelessWidget {
   const _Chip(this.label,
@@ -326,7 +340,7 @@ class _Chip extends StatelessWidget {
   }
 }
 
-// ── Info row ───────────────────────────────────────────────────────────────────────
+// ── Info row ────────────────────────────────────────────────────────────────────
 
 class _InfoRow extends StatelessWidget {
   const _InfoRow({required this.label, required this.value});

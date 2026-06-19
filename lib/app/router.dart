@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../data/repositories/program_repository.dart';
 import '../features/history/history_detail_screen.dart';
 import '../features/history/history_screen.dart';
+import '../features/history/lift_history_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/setup/setup_screen.dart';
 import '../features/training_max/edit_training_max_screen.dart';
@@ -42,6 +43,20 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   final dayId =
                       int.parse(state.pathParameters['dayId'] ?? '0');
                   return HistoryDetailScreen(dayId: dayId);
+                },
+              ),
+              GoRoute(
+                path:    'lift/:liftId',
+                name:    'lift-history',
+                builder: (context, state) {
+                  final liftId =
+                      int.parse(state.pathParameters['liftId'] ?? '0');
+                  final liftName =
+                      state.uri.queryParameters['name'];
+                  return LiftHistoryScreen(
+                    liftId:   liftId,
+                    liftName: liftName,
+                  );
                 },
               ),
             ],
