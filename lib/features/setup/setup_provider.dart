@@ -12,8 +12,6 @@ import '../../domain/services/workout_generator_service.dart';
 // ---------------------------------------------------------------------------
 // Lift key constants
 // ---------------------------------------------------------------------------
-// These are package-level (no underscore) so they can be imported by
-// edit_training_max_provider.dart without relying on private symbol access.
 
 /// The 4 main lift slot keys, in display order.
 const mainLiftKeys = [
@@ -81,7 +79,7 @@ const auxOptions = <String, List<({String key, String label})>>{
     (key: 'deadlift_aux',     label: 'Trap Bar Deadlift'),
   ],
   'overhead_press': [
-    (key: 'ohp_aux',          label: 'DB Schulterdrücken'),
+    (key: 'ohp_aux',          label: 'DB Schulterdr\u00FCcken'),
   ],
 };
 
@@ -103,17 +101,9 @@ class SetupState {
   });
 
   final ProgramFrequency? selectedFrequency;
-
-  /// Main lift TMs (required). Keys: squat, bench_press, deadlift, overhead_press.
   final Map<String, double> trainingMaxes;
-
-  /// Auxiliary lift TMs (optional). Keys from [_allAuxKeys].
-  /// Missing keys fall back to mainMax x [kAuxTmRatio] in saveAndGenerate().
   final Map<String, double> auxTrainingMaxes;
-
-  /// Single @8% ratio per main lift. Defaults to 0.9 (workbook Quick Setup).
   final Map<String, double> singleEightPercentages;
-
   final Map<String, String> selectedAuxiliaries;
   final Map<String, String> liftNames;
   final bool    isValid;
@@ -280,13 +270,11 @@ class SetupNotifier extends Notifier<SetupState> {
       await db.transaction(() async {
         await programRepo.deactivateAll();
 
+        // Use partial update (only displayName) to avoid InvalidDataException.
         for (final entry in state.liftNames.entries) {
           final dbId = liftDbIds[entry.key];
           if (dbId == null) continue;
-          await liftRepo.updateLift(LiftsCompanion(
-            id:          Value(dbId),
-            displayName: Value(entry.value),
-          ));
+          await liftRepo.updateDisplayName(dbId, entry.value);
         }
 
         for (final key in mainLiftKeys) {

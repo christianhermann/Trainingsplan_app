@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../persistence/database.dart';
@@ -15,6 +16,14 @@ class LiftRepository {
   Future<int> saveLift(LiftsCompanion companion) =>
       _db.into(_db.lifts).insertOnConflictUpdate(companion);
 
+  /// Partial update — only writes [displayName], leaves all other columns
+  /// untouched. Safe to call with just an id + new name.
+  Future<int> updateDisplayName(int id, String displayName) =>
+      (_db.update(_db.lifts)..where((l) => l.id.equals(id)))
+          .write(LiftsCompanion(displayName: Value(displayName)));
+
+  /// Full-row replace. Caller must supply ALL non-nullable columns or
+  /// Drift will throw [InvalidDataException].
   Future<bool> updateLift(LiftsCompanion companion) =>
       _db.update(_db.lifts).replace(companion);
 
