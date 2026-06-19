@@ -8,11 +8,13 @@ import '../../data/repositories/program_repository.dart';
 import '../../data/repositories/training_max_repository.dart';
 import '../../domain/models/enums.dart';
 import '../../domain/services/workout_generator_service.dart';
-// Shared lift-key constants - avoids duplication with setup_provider.
+// Shared lift-key constants from setup_provider (package-level, no underscore).
 import '../setup/setup_provider.dart'
-    show auxSlotsByMain, _backKeys, _kAuxTmRatio, _mainLiftKeys;
+    show auxSlotsByMain, backKeys, kAuxTmRatio, mainLiftKeys;
 
-// -- State ------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
 
 class EditTmState {
   const EditTmState({
@@ -29,7 +31,7 @@ class EditTmState {
   final String? errorMessage;
 
   bool get isValid =>
-      _mainLiftKeys.every((k) => (trainingMaxes[k] ?? 0) > 0);
+      mainLiftKeys.every((k) => (trainingMaxes[k] ?? 0) > 0);
 
   EditTmState copyWith({
     Map<String, double>? trainingMaxes,
@@ -48,7 +50,9 @@ class EditTmState {
       );
 }
 
-// -- Notifier ---------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Notifier
+// ---------------------------------------------------------------------------
 
 class EditTmNotifier extends AsyncNotifier<EditTmState> {
   @override
@@ -57,7 +61,7 @@ class EditTmNotifier extends AsyncNotifier<EditTmState> {
     final tmRepo   = ref.read(trainingMaxRepositoryProvider);
 
     final maxes = <String, double>{};
-    for (final key in _mainLiftKeys) {
+    for (final key in mainLiftKeys) {
       final lift = await liftRepo.getLiftByName(key);
       if (lift == null) continue;
       final tm = await tmRepo.getMaxForLift(lift.id);
@@ -101,7 +105,7 @@ class EditTmNotifier extends AsyncNotifier<EditTmState> {
       }
 
       // 2. Persist new TM rows for the 4 main lifts.
-      for (final key in _mainLiftKeys) {
+      for (final key in mainLiftKeys) {
         final dbId = liftDbIds[key];
         if (dbId == null) continue;
         await tmRepo.saveMax(TrainingMaxesCompanion.insert(
@@ -115,16 +119,16 @@ class EditTmNotifier extends AsyncNotifier<EditTmState> {
       // 3. Build full TM map - aux lifts inherit from parent main lift x ratio.
       final deadliftTm = current.trainingMaxes['deadlift']!;
       final fullTmMap  = <String, double>{
-        for (final key in _mainLiftKeys) key: current.trainingMaxes[key]!,
+        for (final key in mainLiftKeys) key: current.trainingMaxes[key]!,
       };
       for (final entry in auxSlotsByMain.entries) {
         final mainTm = current.trainingMaxes[entry.key]!;
         for (final auxKey in entry.value) {
-          fullTmMap[auxKey] = mainTm * _kAuxTmRatio;
+          fullTmMap[auxKey] = mainTm * kAuxTmRatio;
         }
       }
-      for (final k in _backKeys) {
-        fullTmMap[k] = deadliftTm * _kAuxTmRatio;
+      for (final k in backKeys) {
+        fullTmMap[k] = deadliftTm * kAuxTmRatio;
       }
 
       // 4. Regenerate future workouts from current week onward.

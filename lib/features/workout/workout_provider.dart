@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/persistence/database.dart';
@@ -12,7 +13,47 @@ import '../../domain/models/exercise_log.dart' as domain;
 import '../../domain/models/exercise_prescription.dart' as domain;
 import '../../domain/services/progression_service.dart';
 
-// ── State ─────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// toDomain extensions
+// ---------------------------------------------------------------------------
+// Convert Drift-generated row types to domain models in one place.
+// Used in completeWorkout() and can be reused by any future caller.
+
+extension ExerciseLogToDomain on ExerciseLog {
+  domain.ExerciseLog toDomain() => domain.ExerciseLog(
+        id:             id.toString(),
+        prescriptionId: prescriptionId.toString(),
+        completedSets:  completedSets,
+        repsOnLastSet:  repsOnLastSet,
+        notes:          notes,
+        videoUrl:       videoUrl,
+        completedAt:    completedAt,
+      );
+}
+
+extension ExercisePrescriptionToDomain on ExercisePrescription {
+  /// Converts a Drift [ExercisePrescription] row to a domain model.
+  /// [liftName] must be the canonical slot key (e.g. 'squat'), not the
+  /// display name — it is used as liftId for progression lookup.
+  domain.ExercisePrescription toDomain(String liftName) =>
+      domain.ExercisePrescription(
+        id:                  id.toString(),
+        workoutDayId:        workoutDayId.toString(),
+        liftId:              liftName,
+        trainingMaxSnapshot: trainingMaxSnapshot,
+        intensity:           intensity,
+        workingWeight:       workingWeight,
+        repsPerNormalSet:    repsPerNormalSet,
+        repOutTarget:        repOutTarget,
+        setGoal:             setGoal,
+        displayOrder:        displayOrder,
+        isPrimaryBlock:      isPrimaryBlock,
+      );
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
 
 class TodayWorkoutState {
   const TodayWorkoutState({
@@ -36,7 +77,9 @@ class TodayWorkoutState {
   final bool                       isCompleted;
 }
 
-// ── Notifier ──────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Notifier
+// ---------------------------------------------------------------------------
 
 class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
   @override
@@ -61,11 +104,11 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
     final days = await programRepo.getDaysForWeek(currentWeek.id);
     if (days.isEmpty) return null;
 
-    // Use enum comparison instead of raw strings.
     final todayDay = days.firstWhere(
       (d) {
         final status = WorkoutStatus.fromString(d.status);
-        return status == WorkoutStatus.planned || status == WorkoutStatus.inProgress;
+        return status == WorkoutStatus.planned ||
+               status == WorkoutStatus.inProgress;
       },
       orElse: () => days.last,
     );
@@ -82,7 +125,8 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
       prescriptions: prescriptions,
       logs:   {for (final l in logs)     l.prescriptionId: l},
       lifts:  {for (final l in allLifts) l.id:             l},
-      isCompleted: WorkoutStatus.fromString(todayDay.status) == WorkoutStatus.completed,
+      isCompleted:
+          WorkoutStatus.fromString(todayDay.status) == WorkoutStatus.completed,
     );
   }
 
@@ -107,14 +151,12 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
       completedAt: Value(now),
     ));
 
-    // 2. Run progression for every prescription that has a completed log
-    //    with a recorded repsOnLastSet value.
+    // 2. Run progression for every prescription with a recorded repsOnLastSet.
     const progressionSvc = ProgressionService();
     final adjustments    = await adjustmentRepo.getAdjustments();
 
     for (final driftPresc in current.prescriptions) {
       final driftLog = current.logs[driftPresc.id];
-      // Skip if no log or reps not recorded — avoids false TM penalty.
       if (driftLog == null || driftLog.repsOnLastSet == null) continue;
 
       final liftRow = current.lifts[driftPresc.liftId];
@@ -123,34 +165,10 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
       final tmRow = await tmRepo.getMaxForLift(liftRow.id);
       if (tmRow == null) continue;
 
-      final domainLog = domain.ExerciseLog(
-        id:             driftLog.id.toString(),
-        prescriptionId: driftLog.prescriptionId.toString(),
-        completedSets:  driftLog.completedSets,
-        repsOnLastSet:  driftLog.repsOnLastSet,
-        notes:          driftLog.notes,
-        videoUrl:       driftLog.videoUrl,
-        completedAt:    driftLog.completedAt,
-      );
-
-      final domainPresc = domain.ExercisePrescription(
-        id:                  driftPresc.id.toString(),
-        workoutDayId:        driftPresc.workoutDayId.toString(),
-        liftId:              liftRow.name,
-        trainingMaxSnapshot: driftPresc.trainingMaxSnapshot,
-        intensity:           driftPresc.intensity,
-        workingWeight:       driftPresc.workingWeight,
-        repsPerNormalSet:    driftPresc.repsPerNormalSet,
-        repOutTarget:        driftPresc.repOutTarget,
-        setGoal:             driftPresc.setGoal,
-        displayOrder:        driftPresc.displayOrder,
-        isPrimaryBlock:      driftPresc.isPrimaryBlock,
-      );
-
       try {
         final result = progressionSvc.evaluate(
-          log:                domainLog,
-          prescription:       domainPresc,
+          log:                driftLog.toDomain(),
+          prescription:       driftPresc.toDomain(liftRow.name),
           adjustments:        adjustments,
           currentTrainingMax: tmRow.value,
         );
@@ -162,13 +180,17 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
             effectiveDate: now,
           ));
         }
-      } on ArgumentError {
+      } on ArgumentError catch (e) {
+        debugPrint(
+          '[ProgressionService] No adjustment rule found for lift '
+          '"${liftRow.name}" (id: ${liftRow.id}). '
+          'Add an entry in ProgressionAdjustmentSeeder. Error: $e',
+        );
         continue;
       }
     }
 
-    // 3. Auto-advance week when all days are done.
-    //    Re-query after the status update above has been flushed to DB.
+    // 3. Auto-advance week when all days in the current week are done.
     final program = await programRepo.getActiveProgram();
     if (program != null) {
       final weeks = await programRepo.getWeeksForProgram(program.id);

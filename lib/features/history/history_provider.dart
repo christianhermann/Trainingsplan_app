@@ -14,7 +14,9 @@ final _adjustments =
 
 const _progressionSvc = ProgressionService();
 
-// -- Model ------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Model
+// ---------------------------------------------------------------------------
 
 class HistorySession {
   const HistorySession({
@@ -79,7 +81,9 @@ class HistorySession {
   }
 }
 
-// -- List provider ----------------------------------------------------------
+// ---------------------------------------------------------------------------
+// List provider
+// ---------------------------------------------------------------------------
 
 final historySessionsProvider =
     FutureProvider<List<HistorySession>>((ref) async {
@@ -123,10 +127,35 @@ final historySessionsProvider =
   return sessions;
 });
 
-// -- Detail provider --------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Detail provider - O(1) direct repo lookup, not a list scan
+// ---------------------------------------------------------------------------
 
 final historySessionDetailProvider =
     FutureProvider.family<HistorySession?, int>((ref, dayId) async {
-  final sessions = await ref.watch(historySessionsProvider.future);
-  return sessions.where((s) => s.day.id == dayId).firstOrNull;
+  final programRepo = ref.watch(programRepositoryProvider);
+  final workoutRepo = ref.watch(workoutRepositoryProvider);
+  final liftRepo    = ref.watch(liftRepositoryProvider);
+
+  // Fetch the specific day directly.
+  final days = await programRepo.getDayById(dayId);
+  if (days == null) return null;
+  if (WorkoutStatus.fromString(days.status) != WorkoutStatus.completed)
+    return null;
+
+  // Fetch the parent week to get weekNumber.
+  final week = await programRepo.getWeekById(days.workoutWeekId);
+  if (week == null) return null;
+
+  final prescriptions = await workoutRepo.getPrescriptionsForDay(dayId);
+  final logs          = await workoutRepo.getLogsForDay(dayId);
+  final liftMap       = {for (final l in await liftRepo.getAllLifts()) l.id: l};
+
+  return HistorySession(
+    day:           days,
+    week:          week,
+    prescriptions: prescriptions,
+    logs:          {for (final l in logs) l.prescriptionId: l},
+    lifts:         liftMap,
+  );
 });

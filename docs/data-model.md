@@ -2,8 +2,8 @@
 
 ## Goal
 
-The data model should mirror the workbook closely enough that every visible training concept has a typed home in the app. 
-That includes lifts, training maxes, weekly templates, calculated prescriptions, last-set logging, notes, video links, and progression outcomes. 
+The data model should mirror the workbook closely enough that every visible training concept has a typed home in the app.
+That includes lifts, training maxes, weekly templates, calculated prescriptions, last-set logging, notes, video links, and progression outcomes.
 
 ## Core enums
 
@@ -30,7 +30,7 @@ Suggested fields:
 - `defaultOrder`
 - `usesTrainingMax`
 
-The initial seeded lift list should include Squat, Bankdruecken, Deadlift, Schulterdruecken, Leg Press, Wider Stance Squat, DB Bench, Incline DB Press, Trap Bar Deadlift, and DB Schulterdruecken. 
+The initial seeded lift list should include Squat, Bankdruecken, Deadlift, Schulterdruecken, Leg Press, Wider Stance Squat, DB Bench, Incline DB Press, Trap Bar Deadlift, and DB Schulterdruecken.
 
 ### TrainingMax
 
@@ -45,7 +45,7 @@ Suggested fields:
 - `effectiveDate`
 - `notes`
 
-Quick Setup shows max values paired with a “single 8 percentage” value of 0.9 for both main and listed auxiliary lifts. 
+Quick Setup shows max values paired with a "single 8 percentage" value of 0.9 for both main and listed auxiliary lifts.
 
 ### Program
 
@@ -61,7 +61,7 @@ Suggested fields:
 - `createdAt`
 - `updatedAt`
 
-The workbook structure clearly uses a 21-week program length. 
+The workbook structure clearly uses a 21-week program length.
 
 ### WorkoutWeek
 
@@ -87,7 +87,7 @@ Suggested fields:
 - `status`
 - `completedAt`
 
-The workbook has dedicated day layouts inside the frequency sheets, including Day 1 and Day 2 in 2x and additional day sections in higher-frequency sheets. 
+The workbook has dedicated day layouts inside the frequency sheets, including Day 1 and Day 2 in 2x and additional day sections in higher-frequency sheets.
 
 ### ExercisePrescription
 
@@ -106,7 +106,7 @@ Suggested fields:
 - `displayOrder`
 - `isPrimaryBlock`
 
-These fields come directly from the repeated workbook row structure. 
+These fields come directly from the repeated workbook row structure.
 
 ### ExerciseLog
 
@@ -121,7 +121,7 @@ Suggested fields:
 - `videoUrl`
 - `completedAt`
 
-The workbook explicitly includes “Reps on last set,” “Video,” and “Notes” as logging fields. 
+The workbook explicitly includes "Reps on last set", "Video", and "Notes" as logging fields.
 
 ### ProgressAdjustment
 
@@ -135,7 +135,8 @@ Suggested fields:
 - `appliesToCycle`
 - `appliesToTrainingMax`
 
-The workbook shows fixed delta values from -0.05 through +0.03 based on how far below or above the target the user finishes. 
+The workbook shows fixed delta values from -0.05 through +0.05 based on how far below or above the target the user finishes.
+Outcome enum values: `belowBy2`, `belowBy1`, `hit`, `plus1`, `plus2`, `plus3`, `plus4`, `plus5`.
 
 ### IntensityPoint
 
@@ -147,20 +148,20 @@ Suggested fields:
 - `weekNumber`
 - `intensity`
 
-The workbook uses week-indexed intensity values across all 21 weeks. 
+The workbook uses week-indexed intensity values across all 21 weeks.
 
 ### RepTargetPoint
 
-Represents lookup data for normal-set and last-set targets.
+Represents lookup data for rep targets per intensity step.
 
 Suggested fields:
 - `id`
 - `liftId`
 - `intensity`
-- `normalSetTarget`
-- `lastSetTarget`
+- `repsPerSet`
+- `lastSetRirTarget`
 
-The workbook contains both a normal set rep target table and a last set rep target table. 
+The workbook contains a shared rep target table (same curve for all lifts) and a last-set RIR target (always 0 — a program constant).
 
 ### FrequencyTemplate
 
@@ -174,7 +175,7 @@ Suggested fields:
 - `defaultOrder`
 - `blockType`
 
-Separate workbook sheets exist for 2x, 3x, 4x, 5x, and 6x structures. 
+Separate workbook sheets exist for 2x, 3x, 4x, 5x, and 6x structures.
 
 ### AppSettings
 
@@ -206,5 +207,5 @@ Prefer storing generated prescriptions once a cycle is created, while keeping lo
 ## Naming notes
 
 Normalize German workbook names into stable internal IDs but keep user-facing display strings flexible.
-For example, `bankdruecken` can map to display text “Bench Press” or “Bankdruecken,” depending on app language.
+For example, `bankdruecken` can map to display text "Bench Press" or "Bankdruecken", depending on app language.
 Do not rely on spreadsheet column names as runtime identifiers.
