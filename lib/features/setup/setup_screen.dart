@@ -51,11 +51,13 @@ class SetupScreen extends ConsumerWidget {
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
               _TrainingMaxesInput(
-                mainMaxes:        s.trainingMaxes,
-                auxMaxes:         s.auxTrainingMaxes,
-                liftNames:        s.liftNames,
-                onMainMaxUpdated: notifier.updateTrainingMax,
-                onAuxMaxUpdated:  notifier.updateAuxTrainingMax,
+                mainMaxes:                   s.trainingMaxes,
+                auxMaxes:                    s.auxTrainingMaxes,
+                singleEightPercentages:      s.singleEightPercentages,
+                liftNames:                   s.liftNames,
+                onMainMaxUpdated:            notifier.updateTrainingMax,
+                onAuxMaxUpdated:             notifier.updateAuxTrainingMax,
+                onSingleEightUpdated:        notifier.updateSingleEightPercentage,
               ),
               const SizedBox(height: 32),
 
@@ -144,7 +146,6 @@ class _LiftSelectionSection extends StatelessWidget {
   final Map<String, String>           liftNames;
   final void Function(String, String) onNameSet;
 
-  // 5 group cards: 4 movement patterns + back/accessory
   static const _groups = [
     (
       label:     'Squat',
@@ -209,7 +210,6 @@ class _LiftGroupCard extends StatelessWidget {
     final mainSlot = slotKeys.first;
     final mainName = liftNames[mainSlot] ?? liftDefaults[mainSlot] ?? mainSlot;
 
-    // For back group, no single "main" slot — just label all as Accessory.
     final isBackGroup = slotKeys.every((k) =>
         const ['barbell_rows', 'dumbbell_rows', 'pulldowns'].contains(k));
 
@@ -422,7 +422,7 @@ class _LiftPickerSheetState extends State<_LiftPickerSheet> {
               ),
             ),
 
-            // Title — shows the slot's workbook default as reference
+            // Title
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Text(
@@ -631,15 +631,19 @@ class _TrainingMaxesInput extends StatelessWidget {
   const _TrainingMaxesInput({
     required this.mainMaxes,
     required this.auxMaxes,
+    required this.singleEightPercentages,
     required this.liftNames,
     required this.onMainMaxUpdated,
     required this.onAuxMaxUpdated,
+    required this.onSingleEightUpdated,
   });
   final Map<String, double>           mainMaxes;
   final Map<String, double>           auxMaxes;
+  final Map<String, double>           singleEightPercentages;
   final Map<String, String>           liftNames;
   final void Function(String, double) onMainMaxUpdated;
   final void Function(String, double) onAuxMaxUpdated;
+  final void Function(String, double) onSingleEightUpdated;
 
   static const _mainSlots = [
     'squat', 'bench_press', 'deadlift', 'overhead_press',
@@ -653,13 +657,16 @@ class _TrainingMaxesInput extends StatelessWidget {
         // ─ Main lifts ─────────────────────────────────────────────────────────────
         for (final slotKey in _mainSlots) ...[
           _MaxInput(
-            liftId:      slotKey,
-            displayName: liftNames[slotKey] ??
-                         liftDefaults[slotKey] ??
-                         slotKey,
-            currentMax:  mainMaxes[slotKey],
-            hintText:    'Enter max in kg',
-            onChanged:   (v) => onMainMaxUpdated(slotKey, v),
+            liftId:               slotKey,
+            displayName:          liftNames[slotKey] ??
+                                  liftDefaults[slotKey] ??
+                                  slotKey,
+            currentMax:           mainMaxes[slotKey],
+            singleEightPct:       singleEightPercentages[slotKey] ??
+                                  kDefaultSingleAt8,
+            hintText:             'Enter max in kg',
+            onChanged:            (v) => onMainMaxUpdated(slotKey, v),
+            onSingleEightChanged: (v) => onSingleEightUpdated(slotKey, v),
           ),
           const SizedBox(height: 12),
         ],
@@ -680,8 +687,6 @@ class _TrainingMaxesInput extends StatelessWidget {
 
 // ── Auxiliary maxes collapsible section ──────────────────────────────────────
 
-/// Shows one [_MaxInput] per auxiliary slot, grouped under an [ExpansionTile].
-/// Hint text shows the computed default (mainMax × 0.9) when no value is entered.
 class _AuxiliaryMaxesSection extends StatelessWidget {
   const _AuxiliaryMaxesSection({
     required this.mainMaxes,
@@ -694,7 +699,6 @@ class _AuxiliaryMaxesSection extends StatelessWidget {
   final Map<String, String>           liftNames;
   final void Function(String, double) onAuxMaxUpdated;
 
-  // Pairs of (auxSlotKey, parentMainKey) in display order.
   static const _auxRows = [
     (slot: 'front_squat',      parent: 'squat'),
     (slot: 'squat_aux2',       parent: 'squat'),
@@ -757,8 +761,6 @@ class _AuxiliaryMaxesSection extends StatelessWidget {
 }
 
 /// One row inside the auxiliary maxes section.
-/// Shows the lift name and a compact text field.
-/// When empty the hint text shows the computed default (e.g. “90.0 kg (auto)”).
 class _AuxMaxRow extends StatefulWidget {
   const _AuxMaxRow({
     required this.slotKey,
@@ -848,62 +850,122 @@ class _AuxMaxRowState extends State<_AuxMaxRow> {
 
 // ── Max input (main lifts) ──────────────────────────────────────────────────────
 
+/// Renders the training-max text field and the Single @8% field for one main lift.
 class _MaxInput extends StatefulWidget {
   const _MaxInput({
     required this.liftId,
     required this.displayName,
     required this.currentMax,
+    required this.singleEightPct,
     required this.onChanged,
+    required this.onSingleEightChanged,
     this.hintText = 'Enter max in kg',
   });
   final String  liftId;
   final String  displayName;
   final double? currentMax;
+  final double  singleEightPct;
   final String  hintText;
   final void Function(double) onChanged;
+  final void Function(double) onSingleEightChanged;
 
   @override
   State<_MaxInput> createState() => _MaxInputState();
 }
 
 class _MaxInputState extends State<_MaxInput> {
-  late final TextEditingController _ctrl;
+  late final TextEditingController _tmCtrl;
+  late final TextEditingController _s8Ctrl;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = TextEditingController(
+    _tmCtrl = TextEditingController(
         text: widget.currentMax != null
             ? widget.currentMax.toString()
             : '');
+    // Pre-fill with the current value, formatting 0.9 → '0.9'
+    _s8Ctrl = TextEditingController(
+        text: widget.singleEightPct.toString());
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _tmCtrl.dispose();
+    _s8Ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Lift name label
         Text(widget.displayName,
             style: Theme.of(context).textTheme.bodyLarge),
         const SizedBox(height: 8),
-        TextField(
-          controller:   _ctrl,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(
-            hintText:    widget.hintText,
-            suffixText:  'kg',
-            suffixStyle: Theme.of(context).textTheme.bodyMedium,
-          ),
-          onChanged: (v) {
-            final parsed = double.tryParse(v);
-            if (parsed != null) widget.onChanged(parsed);
-          },
+        // Two fields side-by-side: Training Max  |  Single @8%
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Training Max field ────────────────────────────────────
+            Expanded(
+              flex: 3,
+              child: TextField(
+                controller:   _tmCtrl,
+                keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true),
+                decoration: InputDecoration(
+                  hintText:    widget.hintText,
+                  suffixText:  'kg',
+                  suffixStyle: Theme.of(context).textTheme.bodyMedium,
+                ),
+                onChanged: (v) {
+                  final parsed = double.tryParse(v);
+                  if (parsed != null) widget.onChanged(parsed);
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            // ── Single @8% field ─────────────────────────────────────
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Single @8%',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.6)),
+                  ),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller:   _s8Ctrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: '0.9',
+                      hintStyle: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(
+                              color: cs.onSurface.withValues(alpha: 0.35)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 12),
+                    ),
+                    onChanged: (v) {
+                      final parsed = double.tryParse(v);
+                      // Accept values in (0, 1] only; ignore garbage input.
+                      if (parsed != null && parsed > 0 && parsed <= 1) {
+                        widget.onSingleEightChanged(parsed);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );

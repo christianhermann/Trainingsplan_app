@@ -34,9 +34,19 @@ const _mainLiftKeys = [
   'overhead_press',
 ];
 
+/// Default Single @8% ratio used both in state initialisation and in
+/// the UI hint text (matches the workbook Quick Setup default).
+const kDefaultSingleAt8 = 0.9;
+
+/// Initial map so every main lift already has the workbook default.
+const _defaultSingleEightPercentages = <String, double>{
+  'squat':          kDefaultSingleAt8,
+  'bench_press':    kDefaultSingleAt8,
+  'deadlift':       kDefaultSingleAt8,
+  'overhead_press': kDefaultSingleAt8,
+};
+
 /// Auxiliary lift slot keys grouped by their parent main lift.
-/// Used in the UI for the collapsible "Auxiliary Maxes" section and in
-/// saveAndGenerate() to resolve TMs (user-entered or mainMax * 0.9 default).
 const auxSlotsByMain = <String, List<String>>{
   'squat':          ['front_squat', 'squat_aux2'],
   'bench_press':    ['close_grip_bench', 'bench_aux2'],
@@ -82,21 +92,29 @@ const _defaultAux = <String, String>{
 class SetupState {
   const SetupState({
     this.selectedFrequency,
-    this.trainingMaxes       = const {},
-    this.auxTrainingMaxes    = const {},
-    this.selectedAuxiliaries = _defaultAux,
-    this.liftNames           = liftDefaults,
-    this.isValid             = false,
-    this.isSaving            = false,
+    this.trainingMaxes            = const {},
+    this.auxTrainingMaxes         = const {},
+    this.singleEightPercentages   = _defaultSingleEightPercentages,
+    this.selectedAuxiliaries      = _defaultAux,
+    this.liftNames                = liftDefaults,
+    this.isValid                  = false,
+    this.isSaving                 = false,
     this.errorMessage,
   });
 
   final ProgramFrequency?   selectedFrequency;
+
   /// Main lift TMs (required). Keys: squat, bench_press, deadlift, overhead_press.
   final Map<String, double> trainingMaxes;
+
   /// Auxiliary lift TMs (optional). Keys from [_allAuxKeys].
   /// Missing keys fall back to mainMax * 0.9 in saveAndGenerate().
   final Map<String, double> auxTrainingMaxes;
+
+  /// Single @8% ratio per main lift. Defaults to 0.9 (workbook Quick Setup).
+  /// Persisted to TrainingMaxes.singleEightPercentage on save.
+  final Map<String, double> singleEightPercentages;
+
   final Map<String, String> selectedAuxiliaries;
   final Map<String, String> liftNames;
   final bool    isValid;
@@ -107,6 +125,7 @@ class SetupState {
     ProgramFrequency?    selectedFrequency,
     Map<String, double>? trainingMaxes,
     Map<String, double>? auxTrainingMaxes,
+    Map<String, double>? singleEightPercentages,
     Map<String, String>? selectedAuxiliaries,
     Map<String, String>? liftNames,
     bool?                isValid,
@@ -115,13 +134,14 @@ class SetupState {
     bool                 clearError = false,
   }) =>
       SetupState(
-        selectedFrequency:   selectedFrequency   ?? this.selectedFrequency,
-        trainingMaxes:       trainingMaxes       ?? this.trainingMaxes,
-        auxTrainingMaxes:    auxTrainingMaxes    ?? this.auxTrainingMaxes,
-        selectedAuxiliaries: selectedAuxiliaries ?? this.selectedAuxiliaries,
-        liftNames:           liftNames           ?? this.liftNames,
-        isValid:             isValid             ?? this.isValid,
-        isSaving:            isSaving            ?? this.isSaving,
+        selectedFrequency:         selectedFrequency         ?? this.selectedFrequency,
+        trainingMaxes:             trainingMaxes             ?? this.trainingMaxes,
+        auxTrainingMaxes:          auxTrainingMaxes          ?? this.auxTrainingMaxes,
+        singleEightPercentages:    singleEightPercentages    ?? this.singleEightPercentages,
+        selectedAuxiliaries:       selectedAuxiliaries       ?? this.selectedAuxiliaries,
+        liftNames:                 liftNames                 ?? this.liftNames,
+        isValid:                   isValid                   ?? this.isValid,
+        isSaving:                  isSaving                  ?? this.isSaving,
         errorMessage: clearError
             ? null
             : (errorMessage ?? this.errorMessage),
@@ -162,6 +182,15 @@ class SetupNotifier extends Notifier<SetupState> {
     state = state.copyWith(auxTrainingMaxes: updated);
   }
 
+  /// Update the Single @8% ratio for a main lift.
+  /// Accepts values in the range (0, 1]. Ignores out-of-range input.
+  void updateSingleEightPercentage(String liftId, double value) {
+    if (value <= 0 || value > 1) return;
+    final updated = Map<String, double>.from(state.singleEightPercentages);
+    updated[liftId] = value;
+    state = state.copyWith(singleEightPercentages: updated);
+  }
+
   void selectAuxiliary(String mainLiftKey, String auxLiftKey) {
     final updated = Map<String, String>.from(state.selectedAuxiliaries);
     updated[mainLiftKey] = auxLiftKey;
@@ -179,10 +208,11 @@ class SetupNotifier extends Notifier<SetupState> {
 
   void clearAllMaxes() {
     state = state.copyWith(
-      trainingMaxes:       {},
-      auxTrainingMaxes:    {},
-      selectedAuxiliaries: _defaultAux,
-      liftNames:           liftDefaults,
+      trainingMaxes:          {},
+      auxTrainingMaxes:       {},
+      singleEightPercentages: _defaultSingleEightPercentages,
+      selectedAuxiliaries:    _defaultAux,
+      liftNames:              liftDefaults,
     );
     _validate();
   }
@@ -239,27 +269,27 @@ class SetupNotifier extends Notifier<SetupState> {
         ));
       }
 
-      // ── Save main lift TMs ────────────────────────────────────────────
+      // ── Save main lift TMs (including Single @8%) ─────────────────────
       for (final key in _mainLiftKeys) {
-        final tm   = state.trainingMaxes[key]!;
-        final dbId = liftDbIds[key]!;
+        final tm      = state.trainingMaxes[key]!;
+        final s8p     = state.singleEightPercentages[key] ?? kDefaultSingleAt8;
+        final dbId    = liftDbIds[key]!;
         await tmRepo.saveMax(TrainingMaxesCompanion.insert(
-          liftId:        dbId,
-          value:         tm,
-          effectiveDate: now,
+          liftId:                dbId,
+          value:                 tm,
+          singleEightPercentage: Value(s8p),
+          effectiveDate:         now,
         ));
       }
 
       // ── Build full TM map for program generation ───────────────────────
-      // Auxiliary TMs: use user-entered value if present, else mainMax * 0.9
-      // (Quick Setup default from the workbook).
       final fullTmMap = <String, double>{
         for (final key in _mainLiftKeys)
           key: state.trainingMaxes[key]!,
       };
 
       for (final mainKey in _mainLiftKeys) {
-        final mainTm = state.trainingMaxes[mainKey]!;
+        final mainTm  = state.trainingMaxes[mainKey]!;
         final auxKeys = auxSlotsByMain[mainKey] ?? [];
         for (final auxKey in auxKeys) {
           final userValue = state.auxTrainingMaxes[auxKey];
@@ -269,14 +299,13 @@ class SetupNotifier extends Notifier<SetupState> {
         }
       }
 
-      // Back/accessory slots: default to deadlift * 0.9 if not overridden.
       const backKeys = ['barbell_rows', 'dumbbell_rows', 'pulldowns'];
       final deadliftTm = state.trainingMaxes['deadlift']!;
       for (final k in backKeys) {
         fullTmMap[k] = deadliftTm * 0.9;
       }
 
-      // ── Save auxiliary TMs to DB (actual user-entered or computed defaults) ──
+      // ── Save auxiliary TMs to DB ──────────────────────────────────────
       for (final auxKey in _allAuxKeys) {
         final dbId = liftDbIds[auxKey];
         if (dbId == null) continue;
