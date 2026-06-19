@@ -98,8 +98,9 @@ final historySessionsProvider =
   for (final program in programs) {
     for (final week in await programRepo.getWeeksForProgram(program.id)) {
       for (final day in await programRepo.getDaysForWeek(week.id)) {
-        if (WorkoutStatus.fromString(day.status) != WorkoutStatus.completed)
+        if (WorkoutStatus.fromString(day.status) != WorkoutStatus.completed) {
           continue;
+        }
         final prescriptions =
             await workoutRepo.getPrescriptionsForDay(day.id);
         final logs = await workoutRepo.getLogsForDay(day.id);
@@ -140,8 +141,9 @@ final historySessionDetailProvider =
   // Fetch the specific day directly.
   final days = await programRepo.getDayById(dayId);
   if (days == null) return null;
-  if (WorkoutStatus.fromString(days.status) != WorkoutStatus.completed)
+  if (WorkoutStatus.fromString(days.status) != WorkoutStatus.completed) {
     return null;
+  }
 
   // Fetch the parent week to get weekNumber.
   final week = await programRepo.getWeekById(days.workoutWeekId);

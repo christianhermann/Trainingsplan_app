@@ -54,7 +54,7 @@ class ProgressionService {
     required double currentTrainingMax,
   }) {
     final outcome = _mapOutcome(
-      repsOnLastSet: log.repsOnLastSet,
+      repsOnLastSet: log.repsOnLastSet ?? 0,
       repOutTarget:  prescription.repOutTarget,
     );
     final delta = _lookupDelta(
