@@ -11,11 +11,6 @@ The training plan is organized around a 21-week structure.
 It supports weekly frequency templates from 2x to 6x. 
 Each workout row is centered on practical training data such as weight, reps per normal set, rep-out target, set goal, reps on last set, video, and notes. 
 
-## Main entities
-
-Primary lifts in the workbook are Squat, Bankdruecken, Deadlift, and Schulterdruecken. 
-Auxiliary lifts include Leg Press, Wider Stance Squat, DB Bench, Incline DB Press, Trap Bar Deadlift, and DB Schulterdruecken. 
-The workbook also includes additional accessory-style entries such as Latzug, Rudern, T-Bar Rudern, Bizeps Curls, and Trizeps Extension. 
 
 ## App screens
 
