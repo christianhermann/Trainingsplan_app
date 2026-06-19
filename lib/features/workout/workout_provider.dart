@@ -7,11 +7,12 @@ import '../../data/repositories/program_repository.dart';
 import '../../data/repositories/progression_adjustment_repository.dart';
 import '../../data/repositories/training_max_repository.dart';
 import '../../data/repositories/workout_repository.dart';
+import '../../domain/models/enums.dart';
 import '../../domain/models/exercise_log.dart' as domain;
 import '../../domain/models/exercise_prescription.dart' as domain;
 import '../../domain/services/progression_service.dart';
 
-// ── State ─────────────────────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────────
 
 class TodayWorkoutState {
   const TodayWorkoutState({
@@ -30,12 +31,12 @@ class TodayWorkoutState {
   final int weekNumber;
   final int dayIndex;
   final List<ExercisePrescription> prescriptions;
-  final Map<int, ExerciseLog> logs;
-  final Map<int, Lift> lifts;
-  final bool isCompleted;
+  final Map<int, ExerciseLog>      logs;
+  final Map<int, Lift>             lifts;
+  final bool                       isCompleted;
 }
 
-// ── Notifier ───────────────────────────────────────────────────────────────────────────
+// ── Notifier ──────────────────────────────────────────────────────────────────
 
 class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
   @override
@@ -60,8 +61,12 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
     final days = await programRepo.getDaysForWeek(currentWeek.id);
     if (days.isEmpty) return null;
 
+    // Use enum comparison instead of raw strings.
     final todayDay = days.firstWhere(
-      (d) => d.status == 'planned' || d.status == 'inProgress',
+      (d) {
+        final status = WorkoutStatus.fromString(d.status);
+        return status == WorkoutStatus.planned || status == WorkoutStatus.inProgress;
+      },
       orElse: () => days.last,
     );
 
@@ -77,7 +82,7 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
       prescriptions: prescriptions,
       logs:   {for (final l in logs)     l.prescriptionId: l},
       lifts:  {for (final l in allLifts) l.id:             l},
-      isCompleted: todayDay.status == 'completed',
+      isCompleted: WorkoutStatus.fromString(todayDay.status) == WorkoutStatus.completed,
     );
   }
 
@@ -95,20 +100,22 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
     final adjustmentRepo = ref.read(progressionAdjustmentRepositoryProvider);
     final now            = DateTime.now();
 
-    // 1. Mark the day completed
+    // 1. Mark the day completed.
     await programRepo.updateDay(WorkoutDaysCompanion(
       id:          Value(current.workoutDayId),
-      status:      const Value('completed'),
+      status:      Value(WorkoutStatus.completed.name),
       completedAt: Value(now),
     ));
 
     // 2. Run progression for every prescription that has a completed log
+    //    with a recorded repsOnLastSet value.
     const progressionSvc = ProgressionService();
     final adjustments    = await adjustmentRepo.getAdjustments();
 
     for (final driftPresc in current.prescriptions) {
       final driftLog = current.logs[driftPresc.id];
-      if (driftLog == null) continue;
+      // Skip if no log or reps not recorded — avoids false TM penalty.
+      if (driftLog == null || driftLog.repsOnLastSet == null) continue;
 
       final liftRow = current.lifts[driftPresc.liftId];
       if (liftRow == null) continue;
@@ -120,7 +127,7 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
         id:             driftLog.id.toString(),
         prescriptionId: driftLog.prescriptionId.toString(),
         completedSets:  driftLog.completedSets,
-        repsOnLastSet:  driftLog.repsOnLastSet ?? 0,
+        repsOnLastSet:  driftLog.repsOnLastSet,
         notes:          driftLog.notes,
         videoUrl:       driftLog.videoUrl,
         completedAt:    driftLog.completedAt,
@@ -160,9 +167,8 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
       }
     }
 
-    // 3. Auto-advance week when all days done.
-    //    Yield to the microtask queue so Drift can flush the status update
-    //    written in step 1 before we re-query the same rows.
+    // 3. Auto-advance week when all days are done.
+    //    Re-query after the status update above has been flushed to DB.
     final program = await programRepo.getActiveProgram();
     if (program != null) {
       final weeks = await programRepo.getWeeksForProgram(program.id);
@@ -171,10 +177,10 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
         orElse: () => weeks.first,
       );
 
-      await Future.delayed(Duration.zero);
-
       final updatedDays = await programRepo.getDaysForWeek(currentWeek.id);
-      final allDone = updatedDays.every((d) => d.status == 'completed');
+      final allDone = updatedDays.every(
+        (d) => WorkoutStatus.fromString(d.status) == WorkoutStatus.completed,
+      );
 
       if (allDone && program.currentWeek < program.totalWeeks) {
         await programRepo.updateProgram(ProgramsCompanion(
