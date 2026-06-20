@@ -21,6 +21,11 @@ class ProgramRepository {
   Future<bool> updateProgram(ProgramsCompanion companion) =>
       _db.update(_db.programs).replace(companion);
 
+  /// Partially updates a program row — only the supplied fields are written.
+  Future<void> patchProgram(int programId, ProgramsCompanion patch) =>
+      (_db.update(_db.programs)..where((t) => t.id.equals(programId)))
+          .write(patch);
+
   Future<void> deactivateAll() async {
     await (_db.update(_db.programs))
         .write(const ProgramsCompanion(isActive: Value(false)));
@@ -67,6 +72,12 @@ class ProgramRepository {
 
   Future<bool> updateDay(WorkoutDaysCompanion companion) =>
       _db.update(_db.workoutDays).replace(companion);
+
+  /// Partially updates a workout day — only the supplied fields are written.
+  /// Use this instead of [updateDay] when you don't have the full row.
+  Future<void> patchDay(int dayId, WorkoutDaysCompanion patch) =>
+      (_db.update(_db.workoutDays)..where((t) => t.id.equals(dayId)))
+          .write(patch);
 
   /// Deletes all non-completed workout days (and their prescriptions) for
   /// [programId] whose week number is >= [fromWeek].

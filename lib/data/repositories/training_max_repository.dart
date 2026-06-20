@@ -23,8 +23,10 @@ class TrainingMaxRepository {
             ..orderBy([(t) => OrderingTerm.desc(t.effectiveDate)]))
           .get();
 
+  /// Saves a new training-max history entry for [liftId].
+  /// Always inserts a new row so the full history is preserved.
   Future<int> saveMax(TrainingMaxesCompanion companion) =>
-      _db.into(_db.trainingMaxes).insertOnConflictUpdate(companion);
+      _db.into(_db.trainingMaxes).insert(companion);
 
   Future<bool> updateMax(TrainingMaxesCompanion companion) =>
       _db.update(_db.trainingMaxes).replace(companion);

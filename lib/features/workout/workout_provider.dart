@@ -144,12 +144,15 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
     final adjustmentRepo = ref.read(progressionAdjustmentRepositoryProvider);
     final now            = DateTime.now();
 
-    // 1. Mark the day completed.
-    await programRepo.updateDay(WorkoutDaysCompanion(
-      id:          Value(current.workoutDayId),
-      status:      Value(WorkoutStatus.completed.name),
-      completedAt: Value(now),
-    ));
+    // 1. Mark the day completed using a partial update (patchDay) so that
+    //    required columns workoutWeekId and dayIndex are not overwritten.
+    await programRepo.patchDay(
+      current.workoutDayId,
+      WorkoutDaysCompanion(
+        status:      Value(WorkoutStatus.completed.name),
+        completedAt: Value(now),
+      ),
+    );
 
     // 2. Run progression for every prescription with a recorded repsOnLastSet.
     const progressionSvc = ProgressionService();
@@ -174,6 +177,8 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
         );
 
         if (result.newTrainingMax != tmRow.value) {
+          // Insert a new history row — do NOT upsert on liftId so every
+          // progression step is preserved in the training-max history.
           await tmRepo.saveMax(TrainingMaxesCompanion.insert(
             liftId:        liftRow.id,
             value:         result.newTrainingMax,
@@ -191,6 +196,7 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
     }
 
     // 3. Auto-advance week when all days in the current week are done.
+    //    Use patchProgram so only currentWeek + updatedAt are written.
     final program = await programRepo.getActiveProgram();
     if (program != null) {
       final weeks = await programRepo.getWeeksForProgram(program.id);
@@ -205,11 +211,13 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
       );
 
       if (allDone && program.currentWeek < program.totalWeeks) {
-        await programRepo.updateProgram(ProgramsCompanion(
-          id:          Value(program.id),
-          currentWeek: Value(program.currentWeek + 1),
-          updatedAt:   Value(now),
-        ));
+        await programRepo.patchProgram(
+          program.id,
+          ProgramsCompanion(
+            currentWeek: Value(program.currentWeek + 1),
+            updatedAt:   Value(now),
+          ),
+        );
       }
     }
 
