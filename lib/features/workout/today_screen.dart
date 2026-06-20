@@ -64,17 +64,17 @@ class TodayScreen extends ConsumerWidget {
     // Confirm before completing.
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title:   const Text('Complete workout?'),
         content: const Text(
             'This will log progression and advance to the next training day.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('Complete'),
           ),
         ],
