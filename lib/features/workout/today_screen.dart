@@ -253,7 +253,7 @@ class _ExerciseCard extends ConsumerWidget {
       opacity: isCompleted ? 0.6 : 1.0,
       child: Card(
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           child: Column(
