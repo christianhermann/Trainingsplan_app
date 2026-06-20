@@ -71,7 +71,7 @@ ThemeData _build(Brightness brightness) {
   // ---------------------------------------------------------------------------
   final baseText = GoogleFonts.interTextTheme(base.textTheme);
 
-  TextStyle _t(TextStyle s, {double? size, FontWeight? weight, double? height,
+  TextStyle t(TextStyle s, {double? size, FontWeight? weight, double? height,
       double? spacing, Color? color}) =>
       s.copyWith(
         fontSize:      size,
@@ -82,20 +82,20 @@ ThemeData _build(Brightness brightness) {
       );
 
   final textTheme = baseText.copyWith(
-    displayLarge:   _t(baseText.displayLarge!,  weight: FontWeight.w700, spacing: -0.5),
-    displayMedium:  _t(baseText.displayMedium!, weight: FontWeight.w700),
-    headlineLarge:  _t(baseText.headlineLarge!, weight: FontWeight.w700),
-    headlineMedium: _t(baseText.headlineMedium!, weight: FontWeight.w600),
-    headlineSmall:  _t(baseText.headlineSmall!, weight: FontWeight.w600),
-    titleLarge:  _t(baseText.titleLarge!,  size: 18, weight: FontWeight.w600, height: 1.4),
-    titleMedium: _t(baseText.titleMedium!, size: 15, weight: FontWeight.w600, height: 1.4),
-    titleSmall:  _t(baseText.titleSmall!,  size: 13, weight: FontWeight.w500),
-    bodyLarge:   _t(baseText.bodyLarge!,   size: 16, height: 1.55),
-    bodyMedium:  _t(baseText.bodyMedium!,  size: 14, height: 1.5),
-    bodySmall:   _t(baseText.bodySmall!,   size: 12, height: 1.45, color: textSecondary),
-    labelLarge:  _t(baseText.labelLarge!,  size: 14, weight: FontWeight.w600, spacing: 0.1),
-    labelMedium: _t(baseText.labelMedium!, size: 12, spacing: 0.3),
-    labelSmall:  _t(baseText.labelSmall!,  size: 11, spacing: 0.4, color: textSecondary),
+    displayLarge:   t(baseText.displayLarge!,  weight: FontWeight.w700, spacing: -0.5),
+    displayMedium:  t(baseText.displayMedium!, weight: FontWeight.w700),
+    headlineLarge:  t(baseText.headlineLarge!, weight: FontWeight.w700),
+    headlineMedium: t(baseText.headlineMedium!, weight: FontWeight.w600),
+    headlineSmall:  t(baseText.headlineSmall!, weight: FontWeight.w600),
+    titleLarge:  t(baseText.titleLarge!,  size: 18, weight: FontWeight.w600, height: 1.4),
+    titleMedium: t(baseText.titleMedium!, size: 15, weight: FontWeight.w600, height: 1.4),
+    titleSmall:  t(baseText.titleSmall!,  size: 13, weight: FontWeight.w500),
+    bodyLarge:   t(baseText.bodyLarge!,   size: 16, height: 1.55),
+    bodyMedium:  t(baseText.bodyMedium!,  size: 14, height: 1.5),
+    bodySmall:   t(baseText.bodySmall!,   size: 12, height: 1.45, color: textSecondary),
+    labelLarge:  t(baseText.labelLarge!,  size: 14, weight: FontWeight.w600, spacing: 0.1),
+    labelMedium: t(baseText.labelMedium!, size: 12, spacing: 0.3),
+    labelSmall:  t(baseText.labelSmall!,  size: 11, spacing: 0.4, color: textSecondary),
   );
 
   // ---------------------------------------------------------------------------
