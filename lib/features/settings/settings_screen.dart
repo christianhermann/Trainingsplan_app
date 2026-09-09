@@ -314,6 +314,7 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('All data has been reset.')),
                   );
+                  context.go('/setup');
                 }
               } catch (error) {
                 if (context.mounted) {

@@ -191,6 +191,8 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
       }
     }
 
+    // Rebuild only future, incomplete days so new training maxes are reflected
+    // without changing the completed workout that produced them.
     final program = await programRepo.getActiveProgram();
     if (program != null) {
       final trainingMaxes = <String, double>{};

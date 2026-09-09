@@ -18,7 +18,16 @@ class SetupScreen extends ConsumerWidget {
 
     return Scaffold(
       // No backgroundColor override — inherits from theme (high-contrast surface)
-      appBar: AppBar(title: const Text('Setup')),
+      appBar: AppBar(
+        title: const Text('Setup'),
+        actions: [
+          IconButton(
+            tooltip: 'Plan',
+            icon: const Icon(Icons.view_list),
+            onPressed: () => context.go('/plan'),
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -641,6 +650,7 @@ class _TrainingMaxesInput extends StatelessWidget {
       children: [
         for (final slotKey in _mainSlots) ...[
           _MaxInput(
+            key: ValueKey(slotKey),
             liftId: slotKey,
             displayName: liftNames[slotKey] ?? liftDefaults[slotKey] ?? slotKey,
             currentMax: mainMaxes[slotKey],
@@ -826,6 +836,7 @@ class _AuxMaxRowState extends State<_AuxMaxRow> {
 /// Renders the training-max text field and the Single @8% field for one main lift.
 class _MaxInput extends StatefulWidget {
   const _MaxInput({
+    super.key,
     required this.liftId,
     required this.displayName,
     required this.currentMax,
