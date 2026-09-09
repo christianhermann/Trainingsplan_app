@@ -21,7 +21,7 @@ class TrainingsplanApp extends ConsumerWidget {
         ThemeMode.dark;
 
     return MaterialApp.router(
-      title:       'Trainingsplan',
+      title:       'Lightweight, Baby!',
       theme:       appTheme,
       darkTheme:   appThemeDark,
       themeMode:   themeMode,

@@ -2,7 +2,8 @@
 
 ## Source structure
 
-The workbook contains a Quick Setup area, a Setup sheet, an Untouched reference sheet, and separate weekly frequency templates for 2x, 3x, 4x, 5x, and 6x training.
+The workbook contains Quick Setup data, reference tables, and separate weekly
+frequency templates for 2x, 3x, 4x, 5x, and 6x training.
 It also contains tables for intensity, rep targets, last set RIR targets, and progression adjustments based on performance.
 
 ## Main lifts
@@ -11,7 +12,7 @@ The core main lifts are:
 - Squat
 - Bench Press
 - Deadlift
-- Push Press (OHP)
+- Overhead Press (OHP)
 
 In Quick Setup, each main lift has a max value and a "single @8 percentage" value of 0.9.
 
@@ -19,7 +20,7 @@ In Quick Setup, each main lift has a max value and a "single @8 percentage" valu
 
 The workbook defines these auxiliary lift slots:
 - Squat auxiliary 1 = Front Squat
-- Squat auxiliary 2 = Squat
+- Squat auxiliary 2 = Wider Stance Squat
 - Bench auxiliary 1 = Close Grip Bench
 - Bench auxiliary 2 = Bench Press
 - Deadlift auxiliary = Deadlift
@@ -38,7 +39,7 @@ Verified flat intensity values per lift:
 | Squat (main) | 87.5% |
 | Bench Press (main) | 87.5% |
 | Deadlift (main) | 87.5% |
-| Push Press (main) | 87.5% |
+| Overhead Press (main) | 87.5% |
 | Front Squat | 82.5% |
 | Close Grip Bench | 82.5% |
 | Squat (aux) | 75.0% |
@@ -113,5 +114,6 @@ The extracted workbook shows Bench Press TM 100 → 87.5 kg for 3 reps × 3 sets
 - The last set RIR target is always **0** — store as a program constant, not a lookup table.
 - Set count is always **3** — use `WorkoutGenerationService.kSetGoal`.
 - Progression is driven solely by **reps logged on the last set vs. the rep goal**: delta reps = `lastSetReps − repGoal`, capped at +5 for the maximum adjustment.
-- The app should calculate prescriptions from the intensity and rep-target lookup tables and apply the TM delta after each session is logged.
-- The workbook is the source of truth; any ambiguity should be documented explicitly rather than guessed silently.
+- The app calculates prescriptions from the intensity and rep-target lookup
+  tables and applies the TM delta after each session is logged.
+- The workbook is the source of truth for training behavior.

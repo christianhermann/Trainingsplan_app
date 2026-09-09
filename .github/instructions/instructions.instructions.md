@@ -13,20 +13,19 @@ Preserve workbook logic and app consistency over speed or creativity.
 Before generating code for this project, always consult these files:
 
 - `docs/app-overview.md`
-- `docs/workbook-logic.md`
+- `docs/workbook--logic.md`
 - `docs/data-model.md`
 - `docs/ui-guidelines.md`
 - `docs/lookup-tables-implementation.md`
 
 Use them as follows:
-- For training calculations and progression rules, use `docs/workbook-logic.md` as the primary reference.
+- For training calculations and progression rules, use `docs/workbook--logic.md` as the primary reference.
 - For entities, persistence, and naming, use `docs/data-model.md`.
 - For screen structure and visual decisions, use `docs/ui-guidelines.md`.
 - For lookup table implementation status, use `docs/lookup-tables-implementation.md`.
 - For overall product scope and architecture intent, use `docs/app-overview.md`.
 
-If anything is unclear, do not guess silently.
-Leave a clear TODO and mention which open question or missing rule caused the uncertainty.
+If anything is unclear, document the unresolved rule before implementing it.
 
 ## Core product rules
 
@@ -47,9 +46,10 @@ Do not build this as:
 
 ## Screens
 
-The app should be organized around these main screens:
+The app is organized around these main screens:
 - Setup
 - Today Workout / Timer
+- Plan
 - History
 - Settings
 
@@ -191,7 +191,7 @@ When generating code:
 When uncertain:
 - do not guess silently
 - reference the relevant docs
-- leave a TODO with the unresolved point
+- record the unresolved point clearly
 
 ## MVP priority order
 

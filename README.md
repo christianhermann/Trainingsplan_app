@@ -1,54 +1,95 @@
-# Trainingsplan
+# Lightweight, Baby!
 
-A Flutter Android app that converts a structured Excel-based strength training workbook ("SBS Linear Progression") into a native mobile experience.
+Lightweight, Baby! is a local-first Flutter Android app for running a
+structured strength-training plan on a phone.
 
-## What it does
+The app turns the concepts from the project's Excel workbook into a practical
+mobile workflow:
 
-- Set up your training maxes, frequency (2x–6x/week), and auxiliary lift choices
-- Auto-generate a 21-week program with calculated working weights and rep targets
-- Log each workout — sets completed, reps on last set, notes, video links
-- Progression adjusts your training max after every session based on performance
-- Review session history and per-lift progression curves
-- Import / export your data as JSON backup
+- configure training frequency and training maxes
+- generate a 21-week plan for 2–6 training days per week
+- view the current workout and rest timer
+- log completed sets, last-set reps, notes, and video links
+- apply progression adjustments from logged performance
+- review workout history and lift history
+- browse the generated plan by week and training day
+- export and restore local data as JSON
+- configure units, rounding, theme, and timer defaults
 
-## Architecture
+## Training method
 
-Local-first, no cloud sync.
+The workout plan is derived from the **Linear Strength** plan published by
+[Stronger by Science](https://www.strongerbyscience.com/). The workbook used
+by this project is the runtime reference for lift structure, intensity,
+rep targets, rounding, set goals, and progression adjustments.
 
-| Layer | Technology |
-|-------|------------|
-| UI | Flutter, Material 3 (dark theme) |
+This project is an independent implementation and is not affiliated with
+Stronger by Science.
+
+## Technology
+
+| Area | Technology |
+| --- | --- |
+| Platform | Flutter / Android |
+| Language | Dart |
+| UI | Material 3 with a custom dark theme |
 | State | Riverpod |
-| Persistence | Drift + SQLite |
-| Navigation | Go Router |
+| Persistence | Drift with SQLite |
+| Navigation | GoRouter |
 
-Feature-first folder structure under `lib/`:
+The app is local-first and does not require an account or cloud service.
 
-```
+## Project structure
+
+```text
 lib/
-  app/          — MaterialApp, router, theme
-  features/     — setup, workout, history, settings, training_max
-  data/         — repositories, seeders, persistence
-  domain/       — models, pure calculation services
+  app/                 app shell, theme, and routing
+  data/                database, seeders, repositories, and backup services
+  domain/              models and training calculations
+  features/
+    history/           workout and lift history
+    plan/              generated-plan summary
+    settings/          app settings and data management
+    setup/             program setup and generation
+    training_max/      training-max editing
+    workout/           today's workout, timer, and logging
 ```
 
-All training math lives in pure, testable domain services — never in widgets.
+Training calculations live in domain services and generated prescriptions are
+stored locally so workouts remain available offline.
 
-## Workbook fidelity
-
-The workbook is the source of truth. All calculation rules (intensity, rep targets, progression deltas, rounding) are implemented verbatim from the spreadsheet. See `docs/workbook--logic.md` for the full spec.
+The detailed workbook rules are documented in
+[`docs/workbook--logic.md`](docs/workbook--logic.md).
 
 ## Getting started
+
+Requirements:
+
+- Flutter SDK
+- Android SDK or an Android device/emulator
 
 ```bash
 flutter pub get
 flutter run
 ```
 
-## Testing
+## Tests and checks
 
 ```bash
+flutter analyze
 flutter test
 ```
 
-Covers progression logic, rep-target lookup, and workout generation.
+## Data and privacy
+
+Workout data is stored in the app's local SQLite database. The app does not
+send workout data to a remote server. Use the built-in JSON backup tools before
+moving or resetting the app.
+
+## Good to know
+
+This app was heavily heavily vibecoded using different Models through Perplexity and Copilot Free.
+
+## License
+
+No open-source license has been selected for this repository yet.

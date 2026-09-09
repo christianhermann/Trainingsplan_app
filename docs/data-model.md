@@ -1,211 +1,36 @@
 # Data Model
 
-## Goal
+The data model mirrors the workbook concepts used by the app.
 
-The data model should mirror the workbook closely enough that every visible training concept has a typed home in the app.
-That includes lifts, training maxes, weekly templates, calculated prescriptions, last-set logging, notes, video links, and progression outcomes.
+## Main entities
 
-## Core enums
+- **Lift** — stable key, display name, category, and training-max behavior.
+- **TrainingMax** — lift value, single-at-8 percentage, source, date, and
+  history.
+- **Program** — frequency, current week, total weeks, and active state.
+- **WorkoutWeek** — generated week belonging to a program.
+- **WorkoutDay** — day index, title, status, and completion time.
+- **ExercisePrescription** — lift, training-max snapshot, intensity, working
+  weight, rep target, set goal, order, and block type.
+- **ExerciseLog** — completed sets, last-set reps, notes, video URL, and
+  completion time.
+- **AppSettings** — units, rounding, theme, timer, and optional fields.
 
-Recommended enums:
-- `LiftCategory` = main, auxiliary, accessory
-- `ProgramFrequency` = two, three, four, five, six
-- `MaxSourceType` = manual, estimated, imported
-- `WorkoutStatus` = planned, inProgress, completed, skipped
-- `ProgressOutcome` = belowBy2, belowBy1, hit, plus1, plus2, plus3, plus4, plus5
+## Stable naming
 
-## Core models
+Database lift names are stable internal keys such as `squat`,
+`bench_press`, `deadlift`, and `overhead_press`. Display names can be changed
+without changing the training logic.
 
-### Lift
+## Persistence
 
-Represents one exercise definition.
+The local Drift/SQLite database stores:
 
-Suggested fields:
-- `id`
-- `name`
-- `displayName`
-- `category`
-- `isMainLift`
-- `isAuxiliaryLift`
-- `defaultOrder`
-- `usesTrainingMax`
+- seeded lift definitions and progression rules
+- training-max history
+- active programs and generated weeks
+- workout days and prescriptions
+- completed logs
+- app settings
 
-The initial seeded lift list should include Squat, Bankdruecken, Deadlift, Schulterdruecken, Leg Press, Wider Stance Squat, DB Bench, Incline DB Press, Trap Bar Deadlift, and DB Schulterdruecken.
-
-### TrainingMax
-
-Represents the active max used for calculations.
-
-Suggested fields:
-- `id`
-- `liftId`
-- `value`
-- `singleEightPercentage`
-- `sourceType`
-- `effectiveDate`
-- `notes`
-
-Quick Setup shows max values paired with a "single 8 percentage" value of 0.9 for both main and listed auxiliary lifts.
-
-### Program
-
-Represents the current plan configuration.
-
-Suggested fields:
-- `id`
-- `name`
-- `frequency`
-- `currentWeek`
-- `totalWeeks`
-- `isActive`
-- `createdAt`
-- `updatedAt`
-
-The workbook structure clearly uses a 21-week program length.
-
-### WorkoutWeek
-
-Represents one generated week in a program.
-
-Suggested fields:
-- `id`
-- `programId`
-- `weekNumber`
-- `displayLabel`
-- `startDate`
-- `endDate`
-
-### WorkoutDay
-
-Represents a generated training day.
-
-Suggested fields:
-- `id`
-- `workoutWeekId`
-- `dayIndex`
-- `title`
-- `status`
-- `completedAt`
-
-The workbook has dedicated day layouts inside the frequency sheets, including Day 1 and Day 2 in 2x and additional day sections in higher-frequency sheets.
-
-### ExercisePrescription
-
-Represents the planned training instruction for one lift on one workout day.
-
-Suggested fields:
-- `id`
-- `workoutDayId`
-- `liftId`
-- `trainingMaxSnapshot`
-- `intensity`
-- `workingWeight`
-- `repsPerNormalSet`
-- `repOutTarget`
-- `setGoal`
-- `displayOrder`
-- `isPrimaryBlock`
-
-These fields come directly from the repeated workbook row structure.
-
-### ExerciseLog
-
-Represents the performed result for one exercise.
-
-Suggested fields:
-- `id`
-- `prescriptionId`
-- `completedSets`
-- `repsOnLastSet`
-- `notes`
-- `videoUrl`
-- `completedAt`
-
-The workbook explicitly includes "Reps on last set", "Video", and "Notes" as logging fields.
-
-### ProgressAdjustment
-
-Represents the lookup rule used after performance is logged.
-
-Suggested fields:
-- `id`
-- `liftId`
-- `outcome`
-- `delta`
-- `appliesToCycle`
-- `appliesToTrainingMax`
-
-The workbook shows fixed delta values from -0.05 through +0.05 based on how far below or above the target the user finishes.
-Outcome enum values: `belowBy2`, `belowBy1`, `hit`, `plus1`, `plus2`, `plus3`, `plus4`, `plus5`.
-
-### IntensityPoint
-
-Represents one lookup value for one lift and week.
-
-Suggested fields:
-- `id`
-- `liftId`
-- `weekNumber`
-- `intensity`
-
-The workbook uses week-indexed intensity values across all 21 weeks.
-
-### RepTargetPoint
-
-Represents lookup data for rep targets per intensity step.
-
-Suggested fields:
-- `id`
-- `liftId`
-- `intensity`
-- `repsPerSet`
-- `lastSetRirTarget`
-
-The workbook contains a shared rep target table (same curve for all lifts) and a last-set RIR target (always 0 — a program constant).
-
-### FrequencyTemplate
-
-Represents the structural layout of a training frequency.
-
-Suggested fields:
-- `id`
-- `frequency`
-- `dayIndex`
-- `liftId`
-- `defaultOrder`
-- `blockType`
-
-Separate workbook sheets exist for 2x, 3x, 4x, 5x, and 6x structures.
-
-### AppSettings
-
-Suggested fields:
-- `id`
-- `weightUnit`
-- `roundingMode`
-- `roundingIncrement`
-- `themeMode`
-- `restTimerSeconds`
-- `showVideoField`
-- `showNotesField`
-
-## Persistence notes
-
-Persist:
-- lifts
-- training maxes
-- programs
-- generated workout weeks
-- generated workout days
-- prescriptions
-- exercise logs
-- progression results
-- settings
-
-Prefer storing generated prescriptions once a cycle is created, while keeping lookup tables separate and versionable.
-
-## Naming notes
-
-Normalize German workbook names into stable internal IDs but keep user-facing display strings flexible.
-For example, `bankdruecken` can map to display text "Bench Press" or "Bankdruecken", depending on app language.
-Do not rely on spreadsheet column names as runtime identifiers.
+JSON backup and restore operate on this local data.

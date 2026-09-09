@@ -2,46 +2,42 @@
 
 ## Purpose
 
-This app converts an Excel-based strength training workbook into a native Flutter Android experience. 
-The workbook already defines main lifts, auxiliary lifts, training maxes, weekly prescriptions, progression behavior, and workout logging fields, so the app should reproduce that logic rather than invent a new training system. 
+Lightweight, Baby! converts the project's structured strength-training
+workbook into a native, offline-first Android app. It is a workout execution
+and logging tool, not a spreadsheet viewer or a generic fitness tracker.
 
-## Core idea
+The plan is derived from the [Stronger by Science Linear Strength
+plan](https://www.strongerbyscience.com/) and follows the workbook as its
+source of truth.
 
-The training plan is organized around a 21-week structure. 
-It supports weekly frequency templates from 2x to 6x. 
-Each workout row is centered on practical training data such as weight, reps per normal set, rep-out target, set goal, reps on last set, video, and notes. 
+## Screens
 
+- **Setup** — choose frequency, enter training maxes, choose auxiliary lifts,
+  and generate a program.
+- **Today** — execute the current workout, use the rest timer, and log results.
+- **Plan** — inspect the selected week, training days, exercises, weights, sets,
+  and rep targets.
+- **History** — review completed sessions and lift history.
+- **Settings** — configure the app, back up data, restore data, and reset
+  generated training data.
 
-## App screens
+## Training model
 
-The mobile app should use these core screens:
-- Setup
-- Timer / Today Workout
-- History
-- Settings
+The app generates 21 weeks of workouts for 2–6 training days per week. It
+stores generated prescriptions locally, including working weight, intensity,
+rep target, set goal, and lift ordering.
 
-These screens match the real workflow implied by the workbook: setup maxes and frequency, generate workouts, log results, and review prior sessions. 
-
-## Product goals
-
-The app should help a user:
-- set or edit training maxes
-- choose a weekly training frequency
-- generate week and day workouts
-- view working weights and targets
-- log actual performance on the last set
-- store notes and video references
-- review training history
-- carry progression logic forward
+After a workout is logged, progression rules update the relevant training max
+and regenerate only future incomplete prescriptions.
 
 ## Technical direction
 
-The first version should be local-first and Android-first.
-Use Flutter for UI, Riverpod for state, and Drift/SQLite for persistence.
-All calculation logic should live in testable services, not inside widgets.
+- Flutter and Dart
+- Riverpod for state management
+- Drift with SQLite for persistence
+- GoRouter for navigation
+- Material 3 with a custom dark theme
 
-## Scope boundaries
-
-This is not a generic workout tracker.
-It is a workbook-to-app conversion project.
-The MVP should focus on correctness of training logic, fast workout logging, and a clean mobile interface before adding advanced features like workbook import or cloud sync.
+The project uses a feature-first structure. Domain models, repositories,
+persistence, calculation services, and widgets are kept separate so training
+logic remains testable.

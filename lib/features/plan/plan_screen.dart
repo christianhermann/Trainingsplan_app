@@ -3,12 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'plan_provider.dart';
 
-class PlanScreen extends ConsumerWidget {
+class PlanScreen extends ConsumerStatefulWidget {
   const PlanScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final planAsync = ref.watch(planSummaryProvider);
+  ConsumerState<PlanScreen> createState() => _PlanScreenState();
+}
+
+class _PlanScreenState extends ConsumerState<PlanScreen> {
+  int _selectedWeek = 1;
+
+  @override
+  Widget build(BuildContext context) {
+    final planAsync = ref.watch(planSummaryProvider(_selectedWeek));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Plan')),
@@ -23,9 +30,28 @@ class PlanScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text(
-                '${_frequencyLabel(plan.frequency)} · Week ${plan.weekNumber}',
-                style: Theme.of(context).textTheme.headlineSmall,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${_frequencyLabel(plan.frequency)} · Week ${plan.weekNumber}',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                  ),
+                  DropdownButton<int>(
+                    value: plan.weekNumber,
+                    items: [
+                      for (var week = 1; week <= plan.totalWeeks; week++)
+                        DropdownMenuItem(
+                          value: week,
+                          child: Text('Week $week'),
+                        ),
+                    ],
+                    onChanged: (week) {
+                      if (week != null) setState(() => _selectedWeek = week);
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               for (final day in plan.days) ...[
@@ -40,8 +66,17 @@ class PlanScreen extends ConsumerWidget {
                         const SizedBox(height: 8),
                         for (final exercise in day.exercises)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text('• $exercise'),
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Expanded(child: Text(exercise.name)),
+                                Text(
+                                  '${_formatWeight(exercise.weight)} kg · '
+                                  '${exercise.sets} × ${exercise.reps}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
                           ),
                       ],
                     ),
@@ -66,5 +101,11 @@ class PlanScreen extends ConsumerWidget {
       _ => value,
     };
     return '$number days/week';
+  }
+
+  String _formatWeight(double weight) {
+    return weight == weight.roundToDouble()
+        ? weight.toInt().toString()
+        : weight.toStringAsFixed(1);
   }
 }
