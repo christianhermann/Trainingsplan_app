@@ -14,18 +14,28 @@ import '../../data/repositories/program_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/workout_repository.dart';
 import '../../data/seeders/frequency_template_seeder.dart';
-import '../../data/seeders/intensity_seeder.dart';
-import '../../data/seeders/rep_target_seeder.dart';
 import '../models/enums.dart';
+import '../models/frequency_template.dart';
 import '../models/training_max.dart';
 import 'workout_generation_service.dart';
+
+// ---------------------------------------------------------------------------
+// Lookup cache — seeder data is immutable, so cache it after first generation.
+// ---------------------------------------------------------------------------
+class LookupCache {
+  List<FrequencyTemplate>? _frequencyTemplates;
+
+  List<FrequencyTemplate> get frequencyTemplates =>
+      _frequencyTemplates ??= FrequencyTemplateSeeder.generateFrequencyTemplates();
+}
 
 /// Orchestrates full 21-week program generation.
 class WorkoutGeneratorService {
   WorkoutGeneratorService(this._ref);
-  final Ref _ref;
 
+  final Ref _ref;
   final _generationSvc = WorkoutGenerationService();
+  final _lookupCache = LookupCache();
 
   // -- Full-program generation ------------------------------------------------
 
@@ -96,7 +106,7 @@ class WorkoutGeneratorService {
     final roundingIncrement = settings?.roundingIncrement ?? 2.5;
     final roundingMode      = RoundingMode.fromString(settings?.roundingMode);
 
-    final freqTemplates = FrequencyTemplateSeeder.generateFrequencyTemplates()
+    final freqTemplates = _lookupCache.frequencyTemplates
         .where((t) => t.frequency == frequency)
         .toList();
 
@@ -105,8 +115,6 @@ class WorkoutGeneratorService {
           'No FrequencyTemplate entries for frequency: ${frequency.name}');
     }
 
-    final allIntensity  = IntensitySeeder.generateIntensityPoints();
-    final allRepTargets = RepTargetSeeder.generateRepTargetPoints();
     final dayIndices    = (freqTemplates.map((t) => t.dayIndex).toSet().toList()
       ..sort());
     final now = DateTime.now();
@@ -140,8 +148,6 @@ class WorkoutGeneratorService {
           weekNumber:         week.weekNumber,
           frequencyTemplates: freqTemplates,
           trainingMaxes:      tmMap,
-          intensityPoints:    allIntensity,
-          repTargetPoints:    allRepTargets,
           roundingIncrement:  roundingIncrement,
           roundingMode:       roundingMode,
         );

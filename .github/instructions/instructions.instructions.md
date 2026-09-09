@@ -16,13 +16,13 @@ Before generating code for this project, always consult these files:
 - `docs/workbook-logic.md`
 - `docs/data-model.md`
 - `docs/ui-guidelines.md`
-- `docs/open-questions.md`
+- `docs/lookup-tables-implementation.md`
 
 Use them as follows:
 - For training calculations and progression rules, use `docs/workbook-logic.md` as the primary reference.
 - For entities, persistence, and naming, use `docs/data-model.md`.
 - For screen structure and visual decisions, use `docs/ui-guidelines.md`.
-- For unresolved behavior, check `docs/open-questions.md`.
+- For lookup table implementation status, use `docs/lookup-tables-implementation.md`.
 - For overall product scope and architecture intent, use `docs/app-overview.md`.
 
 If anything is unclear, do not guess silently.
@@ -61,15 +61,13 @@ Use a feature-first clean structure.
 
 Preferred folders:
 - `lib/app/`
-- `lib/core/`
 - `lib/features/setup/`
 - `lib/features/workout/`
 - `lib/features/history/`
 - `lib/features/settings/`
-- `lib/features/import/`
+- `lib/features/training_max/`
 - `lib/data/`
 - `lib/domain/`
-- `lib/shared/`
 
 Keep business logic out of widgets.
 
@@ -101,7 +99,7 @@ Use dedicated services for calculations.
 Preferred services:
 - `IntensityLookupService`
 - `RepTargetLookupService`
-- `ProgressionAdjustmentService`
+- `ProgressionService`
 - `WorkoutGenerationService`
 - `RoundingService`
 
@@ -125,7 +123,6 @@ Use strongly typed models for at least:
 - `WorkoutDay`
 - `ExercisePrescription`
 - `ExerciseLog`
-- `ProgressAdjustment`
 - `AppSettings`
 
 Match workbook concepts closely.

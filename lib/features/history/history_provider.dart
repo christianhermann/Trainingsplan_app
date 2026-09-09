@@ -49,10 +49,12 @@ class HistorySession {
 
   /// [ProgressOutcome] for a prescription, or null if no reps recorded.
   ProgressOutcome? outcomeFor(int prescriptionId) {
-    final reps = logs[prescriptionId]?.repsOnLastSet;
-    if (reps == null) return null;
+    final log = logs[prescriptionId];
+    if (log == null) return null;
     return _progressionSvc.determineOutcome(
-      repsOnLastSet: reps,
+      completedSets: log.completedSets,
+      setGoal:       _prescFor(prescriptionId).setGoal,
+      repsOnLastSet: log.repsOnLastSet ?? 0,
       repOutTarget:  _prescFor(prescriptionId).repOutTarget,
     );
   }

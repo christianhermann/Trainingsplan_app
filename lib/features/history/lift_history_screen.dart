@@ -34,9 +34,17 @@ final liftHistoryProvider =
     FutureProvider.family<List<LiftHistoryEntry>, int>((ref, liftId) async {
   final workoutRepo = ref.watch(workoutRepositoryProvider);
   final programRepo = ref.watch(programRepositoryProvider);
+  final liftRepo    = ref.watch(liftRepositoryProvider);
 
   final logs = await workoutRepo.getAllLogsForLift(liftId);
   if (logs.isEmpty) return [];
+
+  // Resolve the canonical lift name (e.g. 'squat') so we can check for
+  // lift-specific adjustment rules before falling back to 'all_lifts'.
+  final liftName = (await liftRepo.getAllLifts())
+      .where((l) => l.id == liftId)
+      .firstOrNull
+      ?.name;
 
   // Build prescriptionId → WorkoutDay map so we can resolve completedAt.
   final allPrograms = await programRepo.getAllPrograms();
@@ -70,16 +78,27 @@ final liftHistoryProvider =
 
     if (log.repsOnLastSet != null) {
       outcome = const ProgressionService().determineOutcome(
-        repsOnLastSet: log.repsOnLastSet!,
+        completedSets: log.completedSets,
+        setGoal:       presc.setGoal,
+        repsOnLastSet: log.repsOnLastSet ?? 0,
         repOutTarget:  presc.repOutTarget,
       );
 
-      // Delta lookup — same logic as HistorySession.deltaFor.
+      // Lift-specific match first, then 'all_lifts' fallback
+      // (same logic as HistorySession.deltaFor).
       final specific = _adjustments.where((a) =>
-          a.liftId == 'all_lifts' &&
+          a.liftId == liftName &&
           a.outcome == outcome &&
           a.appliesToTrainingMax);
-      delta = specific.isNotEmpty ? specific.first.delta : null;
+      delta = specific.isNotEmpty
+          ? specific.first.delta
+          : _adjustments
+              .where((a) =>
+                  a.liftId == 'all_lifts' &&
+                  a.outcome == outcome &&
+                  a.appliesToTrainingMax)
+              .firstOrNull
+              ?.delta;
     }
 
     entries.add(LiftHistoryEntry(

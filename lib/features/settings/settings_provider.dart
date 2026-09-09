@@ -8,7 +8,7 @@ import '../../domain/models/enums.dart';
 
 // ── Default settings (mirrors DB column defaults) ─────────────────────────────
 
-const _kDefault = AppSettings(
+const AppSettings kDefaultSettings = AppSettings(
   id:               'default',
   weightUnit:       'kg',
   roundingMode:     'nearest',
@@ -79,7 +79,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings?> {
       );
 
   Future<void> toggleVideoField() {
-    final current = state.value?.showVideoField ?? _kDefault.showVideoField;
+    final current = state.value?.showVideoField ?? kDefaultSettings.showVideoField;
     final next    = !current;
     return _update(
       (s) => s.copyWith(showVideoField: next),
@@ -88,7 +88,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings?> {
   }
 
   Future<void> toggleNotesField() {
-    final current = state.value?.showNotesField ?? _kDefault.showNotesField;
+    final current = state.value?.showNotesField ?? kDefaultSettings.showNotesField;
     final next    = !current;
     return _update(
       (s) => s.copyWith(showNotesField: next),
@@ -118,7 +118,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings?> {
     AppSettingsTableCompanion companion,
   ) async {
     // Optimistic update — UI responds immediately.
-    final current = state.value ?? _kDefault;
+    final current = state.value ?? kDefaultSettings;
     state = AsyncData(transform(current));
 
     // Persist to DB (fire-and-forget: state already updated).

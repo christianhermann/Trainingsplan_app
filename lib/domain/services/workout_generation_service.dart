@@ -18,13 +18,69 @@
 import '../models/enums.dart';
 import '../models/exercise_prescription.dart';
 import '../models/frequency_template.dart';
-import '../models/intensity_point.dart';
-import '../models/rep_target_point.dart';
 import '../models/training_max.dart';
 
-import 'intensity_lookup_service.dart';
-import 'rep_target_lookup_service.dart';
 import 'rounding_service.dart';
+
+// ---------------------------------------------------------------------------
+// Rep-target lookup — replaces RepTargetPoint table + RepTargetLookupService.
+// Workbook Quick Setup: 21 intensity steps from 50.0% to 100.0% in 2.5%
+// increments. Same curve for every lift.
+// ---------------------------------------------------------------------------
+
+/// Returns the reps-per-set target for a given intensity (0.0–1.0).
+///
+/// Workbook Quick Setup tab, rows C24:W24:
+///   0.50 → 20, 0.525 → 18, 0.55 → 16, 0.575 → 15,
+///   0.60 → 14, 0.625 → 13, 0.65 → 12, 0.675 → 11,
+///   0.70 → 10, 0.725 →  9, 0.75 →  8, 0.775 →  7,
+///   0.80 →  6, 0.825 →  5, 0.85 →  4, 0.875 →  3,
+///   0.90 →  2, 0.925 →  2, 0.95 →  1, 0.975 →  1, 1.00 →  1.
+///
+/// Values between steps round down to the nearest bucket (e.g. 0.71 → 10 reps).
+int repsForIntensity(double intensity) {
+  if (intensity >= 0.975) return 1;
+  if (intensity >= 0.950) return 1;
+  if (intensity >= 0.925) return 2;
+  if (intensity >= 0.900) return 2;
+  if (intensity >= 0.875) return 3;
+  if (intensity >= 0.850) return 4;
+  if (intensity >= 0.825) return 5;
+  if (intensity >= 0.800) return 6;
+  if (intensity >= 0.775) return 7;
+  if (intensity >= 0.750) return 8;
+  if (intensity >= 0.725) return 9;
+  if (intensity >= 0.700) return 10;
+  if (intensity >= 0.675) return 11;
+  if (intensity >= 0.650) return 12;
+  if (intensity >= 0.625) return 13;
+  if (intensity >= 0.600) return 14;
+  if (intensity >= 0.575) return 15;
+  if (intensity >= 0.550) return 16;
+  if (intensity >= 0.525) return 18;
+  return 20;
+}
+
+/// Returns the intensity fraction for a given lift.
+///
+/// Workbook Quick Setup:
+///   Main lifts (squat, bench_press, deadlift, overhead_press) → 0.875
+///   Aux tier-1 (front_squat, close_grip_bench)               → 0.825
+///   Aux tier-2 + back exercises                               → 0.750
+double intensityForLift(String liftId) {
+  switch (liftId) {
+    case 'squat':
+    case 'bench_press':
+    case 'deadlift':
+    case 'overhead_press':
+      return 0.875;
+    case 'front_squat':
+    case 'close_grip_bench':
+      return 0.825;
+    default:
+      return 0.750;
+  }
+}
 
 /// Pure domain service - no DB, no Riverpod.
 ///
@@ -39,17 +95,11 @@ class WorkoutGenerationService {
   // Workbook constant: all lifts are prescribed 3 sets per session.
   static const int kSetGoal = 3;
 
-  final IntensityLookupService _intensityLookup;
-  final RepTargetLookupService _repTargetLookup;
   final RoundingService        _rounding;
 
   WorkoutGenerationService({
-    IntensityLookupService? intensityLookup,
-    RepTargetLookupService? repTargetLookup,
     RoundingService?        rounding,
-  })  : _intensityLookup = intensityLookup ?? IntensityLookupService(),
-        _repTargetLookup = repTargetLookup ?? RepTargetLookupService(),
-        _rounding        = rounding        ?? const RoundingService();
+  })  : _rounding        = rounding        ?? const RoundingService();
 
   /// Generate prescriptions for one day.
   ///
@@ -63,8 +113,6 @@ class WorkoutGenerationService {
     required int                 weekNumber,
     required List<FrequencyTemplate> frequencyTemplates,
     required Map<String, TrainingMax> trainingMaxes,
-    required List<IntensityPoint>    intensityPoints,
-    required List<RepTargetPoint>    repTargetPoints,
     required double                  roundingIncrement,
     required RoundingMode            roundingMode,
   }) {
@@ -87,8 +135,6 @@ class WorkoutGenerationService {
           workoutDayId:      workoutDayId,
           weekNumber:        weekNumber,
           trainingMaxes:     trainingMaxes,
-          intensityPoints:   intensityPoints,
-          repTargetPoints:   repTargetPoints,
           roundingIncrement: roundingIncrement,
           roundingMode:      roundingMode,
         ),
@@ -100,8 +146,6 @@ class WorkoutGenerationService {
     required String                   workoutDayId,
     required int                      weekNumber,
     required Map<String, TrainingMax> trainingMaxes,
-    required List<IntensityPoint>     intensityPoints,
-    required List<RepTargetPoint>     repTargetPoints,
     required double                   roundingIncrement,
     required RoundingMode             roundingMode,
   }) {
@@ -112,11 +156,7 @@ class WorkoutGenerationService {
           'Ensure all lifts in the frequency template have a TM entry.');
     }
 
-    final intensity = _intensityLookup.getIntensity(
-      template.liftId,
-      weekNumber,
-      intensityPoints,
-    );
+    final intensity = intensityForLift(template.liftId);
 
     final workingWeight = _rounding.round(
       trainingMax.value * intensity,
@@ -124,11 +164,7 @@ class WorkoutGenerationService {
       roundingIncrement,
     );
 
-    final repsPerNormalSet = _repTargetLookup.getRepTarget(
-      template.liftId,
-      intensity,
-      repTargetPoints,
-    );
+    final repsPerNormalSet = repsForIntensity(intensity);
 
     // repOutTarget == repsPerNormalSet: workbook has one rep count per
     // intensity step; RIR=0 on the last set means work to technical limit.
@@ -157,7 +193,6 @@ class WorkoutGenerationService {
     required int          weekNumber,
     required TrainingMax  trainingMax,
     required double       intensity,
-    required List<RepTargetPoint> repTargetPoints,
     required double       roundingIncrement,
     required RoundingMode roundingMode,
   }) {
@@ -167,7 +202,7 @@ class WorkoutGenerationService {
       roundingIncrement,
     );
     final repsPerNormalSet =
-        _repTargetLookup.getRepTarget(liftId, intensity, repTargetPoints);
+        repsForIntensity(intensity);
 
     return ExercisePrescription(
       id:                  '${workoutDayId}_${liftId}_w$weekNumber',

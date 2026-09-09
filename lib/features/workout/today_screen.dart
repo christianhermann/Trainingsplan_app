@@ -187,7 +187,7 @@ class _WorkoutBody extends StatelessWidget {
   }
 }
 
-// ── Sealed list item types ─────────────────────────────────────────────────────────
+// ── List item discriminator ──────────────────────────────────────────────────────
 
 sealed class _ListItem {
   const _ListItem();
@@ -344,7 +344,7 @@ class _ExerciseCard extends ConsumerWidget {
   }
 }
 
-// ── Rep-out target chip ─────────────────────────────────────────────────────────────────────
+// ── Rep-out target chip ────────────────────────────────────────────────────────────────────
 
 class _RepOutChip extends StatelessWidget {
   const _RepOutChip({
@@ -441,36 +441,19 @@ class _CompletedBanner extends StatelessWidget {
   }
 }
 
-// ── Empty / error states ───────────────────────────────────────────────────────────────────────
+// ── Empty / error states ──────────────────────────────────────────────────────────────────────
 
 class _NoActiveProgram extends StatelessWidget {
   const _NoActiveProgram();
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    return Center(
+    return const Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.fitness_center_rounded,
-                size: 56, color: cs.onSurface.withValues(alpha: 0.25)),
-            const SizedBox(height: 16),
-            Text(
-              'No active program',
-              style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Head to Setup to configure your training maxes and generate a program.',
-              textAlign: TextAlign.center,
-              style: tt.bodyMedium?.copyWith(
-                  color: cs.onSurface.withValues(alpha: 0.55)),
-            ),
-          ],
+        padding: EdgeInsets.all(32),
+        child: Text(
+          'No active program. Go to Setup to get started.',
+          textAlign: TextAlign.center,
         ),
       ),
     );
@@ -485,10 +468,8 @@ class _ErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text('Error: $message',
-            style: TextStyle(
-                color: Theme.of(context).colorScheme.error)),
+        padding: const EdgeInsets.all(32),
+        child: Text('Error: $message'),
       ),
     );
   }

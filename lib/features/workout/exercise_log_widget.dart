@@ -27,6 +27,7 @@ class ExerciseLogWidget extends StatefulWidget {
 }
 
 class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
+  late TextEditingController _setsController;
   late TextEditingController _repsController;
   late TextEditingController _notesController;
   late TextEditingController _videoController;
@@ -35,6 +36,8 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
   @override
   void initState() {
     super.initState();
+    _setsController =
+        TextEditingController(text: widget.log?.completedSets.toString() ?? '');
     _repsController =
         TextEditingController(text: widget.log?.repsOnLastSet?.toString() ?? '');
     _notesController =
@@ -45,6 +48,7 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
 
   @override
   void dispose() {
+    _setsController.dispose();
     _repsController.dispose();
     _notesController.dispose();
     _videoController.dispose();
@@ -52,11 +56,12 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
   }
 
   void _save() {
+    final sets = int.tryParse(_setsController.text);
     final reps = int.tryParse(_repsController.text);
     widget.onLogUpdated(ExerciseLogsCompanion(
       id: widget.log != null ? Value(widget.log!.id) : const Value.absent(),
       prescriptionId: Value(widget.prescription.id),
-      completedSets: Value(widget.prescription.setGoal),
+      completedSets: Value(sets ?? 0),
       repsOnLastSet: Value(reps),
       notes: Value(_notesController.text.isEmpty ? null : _notesController.text),
       videoUrl:
@@ -120,15 +125,34 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
             ],
 
             // ── Reps input (always shown) ───────────────────────────────────────
-            TextField(
-              controller: _repsController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Reps on last set',
-                hintText: 'e.g. 8',
-              ),
-              onChanged: (_) => _save(),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _setsController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      labelText: 'Sets completed',
+                      hintText: '${widget.prescription.setGoal}',
+                    ),
+                    onChanged: (_) => _save(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _repsController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      labelText: 'Reps on last set',
+                      hintText: 'e.g. 8',
+                    ),
+                    onChanged: (_) => _save(),
+                  ),
+                ),
+              ],
             ),
 
             // ── Expandable notes / video (always available) ────────────────────

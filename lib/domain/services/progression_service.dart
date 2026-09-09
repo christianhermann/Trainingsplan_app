@@ -25,19 +25,27 @@ class ProgressionResult {
 /// Pure domain service - no DB, no Riverpod.
 ///
 /// Accepts a completed [ExerciseLog] and its linked [ExercisePrescription],
-/// compares [ExerciseLog.repsOnLastSet] against [ExercisePrescription.repOutTarget],
-/// maps the difference to a [ProgressOutcome], looks up the matching
+/// compares [ExerciseLog.completedSets] against [ExercisePrescription.setGoal]
+/// and [ExerciseLog.repsOnLastSet] against [ExercisePrescription.repOutTarget],
+/// maps the result to a [ProgressOutcome], looks up the matching
 /// [ProgressAdjustment] delta, and returns a [ProgressionResult].
 ///
-/// Rep-diff -> outcome mapping (workbook):
-///   diff <= -2  -> belowBy2
-///   diff = -1   -> belowBy1
-///   diff =  0   -> hit
-///   diff = +1   -> plus1
-///   diff = +2   -> plus2
-///   diff = +3   -> plus3
-///   diff = +4   -> plus4
-///   diff >= +5  -> plus5
+/// Outcome mapping (workbook):
+///
+/// 1. Set-failure branch (checked first):
+///    completedSets < setGoal - 1  -> belowBy2  (2+ sets missed)
+///    completedSets == setGoal - 1 -> belowBy1  (1 set missed)
+///
+/// 2. RIR branch (all sets completed):
+///    diff = repsOnLastSet - repOutTarget
+///    diff <= -2  -> belowBy2
+///    diff = -1   -> belowBy1
+///    diff =  0   -> hit
+///    diff = +1   -> plus1
+///    diff = +2   -> plus2
+///    diff = +3   -> plus3
+///    diff = +4   -> plus4
+///    diff >= +5  -> plus5
 ///
 /// Adjustment lookup order:
 ///   1. Exact match on liftId + outcome (appliesToTrainingMax = true).
@@ -54,6 +62,8 @@ class ProgressionService {
     required double currentTrainingMax,
   }) {
     final outcome = _mapOutcome(
+      completedSets: log.completedSets,
+      setGoal:       prescription.setGoal,
       repsOnLastSet: log.repsOnLastSet ?? 0,
       repOutTarget:  prescription.repOutTarget,
     );
@@ -70,17 +80,31 @@ class ProgressionService {
 
   /// Exposed separately so unit tests can verify outcome mapping in isolation.
   ProgressOutcome determineOutcome({
+    required int completedSets,
+    required int setGoal,
     required int repsOnLastSet,
     required int repOutTarget,
   }) =>
-      _mapOutcome(repsOnLastSet: repsOnLastSet, repOutTarget: repOutTarget);
+      _mapOutcome(
+        completedSets: completedSets,
+        setGoal:       setGoal,
+        repsOnLastSet: repsOnLastSet,
+        repOutTarget:  repOutTarget,
+      );
 
   // ---------------------------------------------------------------------------
 
   ProgressOutcome _mapOutcome({
+    required int completedSets,
+    required int setGoal,
     required int repsOnLastSet,
     required int repOutTarget,
   }) {
+    // Set-failure branch: checked first per workbook rules.
+    if (completedSets < setGoal - 1) return ProgressOutcome.belowBy2;
+    if (completedSets == setGoal - 1) return ProgressOutcome.belowBy1;
+
+    // RIR branch: all sets completed — outcome driven by last-set reps.
     final diff = repsOnLastSet - repOutTarget;
     if (diff <= -2) return ProgressOutcome.belowBy2;
     if (diff == -1) return ProgressOutcome.belowBy1;

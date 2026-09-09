@@ -210,14 +210,16 @@ class AppDatabase extends _$AppDatabase {
       ('pulldowns',         'Pull-downs',             'auxiliary', false, true,  13),
     ];
     for (final s in seeds) {
-      await into(lifts).insert(LiftsCompanion.insert(
-        name:            s.$1,
-        displayName:     s.$2,
-        category:        s.$3,
-        isMainLift:      Value(s.$4),
-        isAuxiliaryLift: Value(s.$5),
-        defaultOrder:    Value(s.$6),
-      ));
+      await into(lifts).insertOnConflictUpdate(
+        LiftsCompanion.insert(
+          name:            s.$1,
+          displayName:     s.$2,
+          category:        s.$3,
+          isMainLift:      Value(s.$4),
+          isAuxiliaryLift: Value(s.$5),
+          defaultOrder:    Value(s.$6),
+        ),
+      );
     }
   }
 

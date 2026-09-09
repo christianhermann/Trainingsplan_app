@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/persistence/database.dart';
@@ -185,12 +184,8 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
             effectiveDate: now,
           ));
         }
-      } on ArgumentError catch (e) {
-        debugPrint(
-          '[ProgressionService] No adjustment rule found for lift '
-          '"${liftRow.name}" (id: ${liftRow.id}). '
-          'Add an entry in ProgressionAdjustmentSeeder. Error: $e',
-        );
+      } on ArgumentError {
+        // Adjustment rule missing — skip this lift and continue.
         continue;
       }
     }

@@ -22,26 +22,13 @@ class SettingsScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error:   (e, _) => Center(child: Text('Error: $e')),
         data:    (settings) {
-          final s = settings ?? _kDefault;
+          final s = settings ?? kDefaultSettings;
           return _SettingsList(settings: s);
         },
       ),
     );
   }
 }
-
-// ── Default ──────────────────────────────────────────────────────────────────────
-
-const _kDefault = AppSettings(
-  id:               'default',
-  weightUnit:       'kg',
-  roundingMode:     'nearest',
-  roundingIncrement: 2.5,
-  themeMode:        'dark',
-  restTimerSeconds: 180,
-  showVideoField:   true,
-  showNotesField:   true,
-);
 
 // ── Settings list ──────────────────────────────────────────────────────────────────
 

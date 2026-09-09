@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../persistence/database.dart';
@@ -17,19 +16,6 @@ class ProgressionAdjustmentRepository {
   /// Returns every adjustment row mapped to the domain [domain.ProgressAdjustment] model.
   Future<List<domain.ProgressAdjustment>> getAdjustments() async {
     final rows = await _db.select(_db.progressAdjustments).get();
-    return rows.map(_toDomain).toList();
-  }
-
-  /// Returns adjustments for a specific lift ID (including 'all_lifts' fallback rows).
-  Future<List<domain.ProgressAdjustment>> getAdjustmentsForLift(String liftId) async {
-    final rows = await (_db.select(_db.progressAdjustments)
-          ..where(
-            (t) => Expression.or([
-              t.liftId.equals(liftId),
-              t.liftId.equals('all_lifts'),
-            ]),
-          ))
-        .get();
     return rows.map(_toDomain).toList();
   }
 

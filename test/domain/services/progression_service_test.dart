@@ -128,18 +128,70 @@ void main() {
   });
 
   // ── Boundary / clamp behaviour ─────────────────────────────────────────────
-  group('Boundary clamps', () {
+  group('Boundary clamps (all sets completed)', () {
     test('diff=-5 still maps to belowBy2 (lower clamp)', () {
       expect(
-        svc.determineOutcome(repsOnLastSet: 0, repOutTarget: 5),
+        svc.determineOutcome(
+          completedSets: 4,
+          setGoal:       4,
+          repsOnLastSet: 0,
+          repOutTarget:  5,
+        ),
         ProgressOutcome.belowBy2,
       );
     });
 
     test('diff=+10 still maps to plus5 (upper clamp)', () {
       expect(
-        svc.determineOutcome(repsOnLastSet: 15, repOutTarget: 5),
+        svc.determineOutcome(
+          completedSets: 4,
+          setGoal:       4,
+          repsOnLastSet: 15,
+          repOutTarget:  5,
+        ),
         ProgressOutcome.plus5,
+      );
+    });
+  });
+
+  // ── Set-failure branch ──────────────────────────────────────────────────────
+  group('Set-failure branch (takes priority over RIR)', () {
+    test('2+ sets missed -> belowBy2 even if reps were high', () {
+      // setGoal=4, completed=1 (missed 3) -> belowBy2
+      expect(
+        svc.determineOutcome(
+          completedSets: 1,
+          setGoal:       4,
+          repsOnLastSet: 99,
+          repOutTarget:  3,
+        ),
+        ProgressOutcome.belowBy2,
+      );
+    });
+
+    test('1 set missed -> belowBy1 even if reps were high', () {
+      // setGoal=4, completed=3 (missed 1) -> belowBy1
+      expect(
+        svc.determineOutcome(
+          completedSets: 3,
+          setGoal:       4,
+          repsOnLastSet: 99,
+          repOutTarget:  3,
+        ),
+        ProgressOutcome.belowBy1,
+      );
+    });
+
+    test('all sets completed -> RIR branch used (not set-failure)', () {
+      // setGoal=4, completed=4 -> RIR branch: diff = 5 - 3 = +2 -> plus2
+      expect(
+        svc.determineOutcome(
+          completedSets: 4,
+          setGoal:       4,
+          repsOnLastSet: 5,
+          repOutTarget:  3,
+        ),
+        ProgressOutcome.plus2,
       );
     });
   });
