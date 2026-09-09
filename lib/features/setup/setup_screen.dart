@@ -13,19 +13,27 @@ class SetupScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s        = ref.watch(setupProvider);
+    final s = ref.watch(setupProvider);
     final notifier = ref.read(setupProvider.notifier);
 
     return Scaffold(
       // No backgroundColor override — inherits from theme (high-contrast surface)
-      appBar: AppBar(title: const Text('Setup')),
+      appBar: AppBar(
+        title: const Text('Setup'),
+        actions: [
+          IconButton(
+            tooltip: 'Plan',
+            icon: const Icon(Icons.view_list),
+            onPressed: () => context.go('/plan'),
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               // Header
               Text('Configure Your Program',
                   style: Theme.of(context).textTheme.displayMedium),
@@ -41,7 +49,7 @@ class SetupScreen extends ConsumerWidget {
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
               _FrequencySelector(
-                selected:   s.selectedFrequency,
+                selected: s.selectedFrequency,
                 onSelected: notifier.selectFrequency,
               ),
               const SizedBox(height: 32),
@@ -51,13 +59,13 @@ class SetupScreen extends ConsumerWidget {
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
               _TrainingMaxesInput(
-                mainMaxes:                   s.trainingMaxes,
-                auxMaxes:                    s.auxTrainingMaxes,
-                singleEightPercentages:      s.singleEightPercentages,
-                liftNames:                   s.liftNames,
-                onMainMaxUpdated:            notifier.updateTrainingMax,
-                onAuxMaxUpdated:             notifier.updateAuxTrainingMax,
-                onSingleEightUpdated:        notifier.updateSingleEightPercentage,
+                mainMaxes: s.trainingMaxes,
+                auxMaxes: s.auxTrainingMaxes,
+                singleEightPercentages: s.singleEightPercentages,
+                liftNames: s.liftNames,
+                onMainMaxUpdated: notifier.updateTrainingMax,
+                onAuxMaxUpdated: notifier.updateAuxTrainingMax,
+                onSingleEightUpdated: notifier.updateSingleEightPercentage,
               ),
               const SizedBox(height: 32),
 
@@ -98,7 +106,7 @@ class SetupScreen extends ConsumerWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: notifier.clearAllMaxes,
-                      child:     const Text('Reset'),
+                      child: const Text('Reset'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -116,7 +124,8 @@ class SetupScreen extends ConsumerWidget {
                           : null,
                       child: s.isSaving
                           ? const SizedBox(
-                              width: 20, height: 20,
+                              width: 20,
+                              height: 20,
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white))
                           : const Text('Generate Program'),
@@ -140,34 +149,34 @@ class _LiftSelectionSection extends StatelessWidget {
     required this.liftNames,
     required this.onNameSet,
   });
-  final Map<String, String>           liftNames;
+  final Map<String, String> liftNames;
   final void Function(String, String) onNameSet;
 
   static const _groups = [
     (
-      label:     'Squat',
+      label: 'Squat',
       slotLabel: 'Squat pattern',
-      slots:     ['squat', 'front_squat', 'squat_aux2'],
+      slots: ['squat', 'front_squat', 'squat_aux2'],
     ),
     (
-      label:     'Bankdrücken',
+      label: 'Bankdrücken',
       slotLabel: 'Bench pattern',
-      slots:     ['bench_press', 'close_grip_bench', 'bench_aux2'],
+      slots: ['bench_press', 'close_grip_bench', 'bench_aux2'],
     ),
     (
-      label:     'Deadlift',
+      label: 'Deadlift',
       slotLabel: 'Hinge pattern',
-      slots:     ['deadlift', 'deadlift_aux'],
+      slots: ['deadlift', 'deadlift_aux'],
     ),
     (
-      label:     'Schulterdrücken',
+      label: 'Schulterdrücken',
       slotLabel: 'Press pattern',
-      slots:     ['overhead_press', 'ohp_aux'],
+      slots: ['overhead_press', 'ohp_aux'],
     ),
     (
-      label:     'Back / Accessory',
+      label: 'Back / Accessory',
       slotLabel: 'Pull pattern',
-      slots:     ['barbell_rows', 'dumbbell_rows', 'pulldowns'],
+      slots: ['barbell_rows', 'dumbbell_rows', 'pulldowns'],
     ),
   ];
 
@@ -178,9 +187,9 @@ class _LiftSelectionSection extends StatelessWidget {
         for (final g in _groups)
           _LiftGroupCard(
             groupLabel: g.label,
-            slotKeys:   g.slots,
-            liftNames:  liftNames,
-            onNameSet:  onNameSet,
+            slotKeys: g.slots,
+            liftNames: liftNames,
+            onNameSet: onNameSet,
           ),
       ],
     );
@@ -196,15 +205,15 @@ class _LiftGroupCard extends StatelessWidget {
     required this.liftNames,
     required this.onNameSet,
   });
-  final String                        groupLabel;
-  final List<String>                  slotKeys;
-  final Map<String, String>           liftNames;
+  final String groupLabel;
+  final List<String> slotKeys;
+  final Map<String, String> liftNames;
   final void Function(String, String) onNameSet;
 
   @override
   Widget build(BuildContext context) {
-    final cs       = Theme.of(context).colorScheme;
-    final tt       = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     final mainSlot = slotKeys.first;
     final mainName = liftNames[mainSlot] ?? liftDefaults[mainSlot] ?? mainSlot;
 
@@ -214,12 +223,12 @@ class _LiftGroupCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       // No hardcoded color — uses cardTheme.color from theme.dart
-      shape:  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
-        tilePadding:     const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-        shape:           const Border(),
-        collapsedShape:  const Border(),
+        shape: const Border(),
+        collapsedShape: const Border(),
         title: Row(
           children: [
             Text(
@@ -247,12 +256,12 @@ class _LiftGroupCard extends StatelessWidget {
           const SizedBox(height: 8),
           for (final slotKey in slotKeys)
             _LiftSlotTile(
-              slotKey:     slotKey,
-              badgeLabel:  isBackGroup ? 'Acc' : (slotKey == mainSlot ? 'Main' : 'Aux'),
-              isMain:      !isBackGroup && slotKey == mainSlot,
-              currentName: liftNames[slotKey] ??
-                           liftDefaults[slotKey] ??
-                           slotKey,
+              slotKey: slotKey,
+              badgeLabel:
+                  isBackGroup ? 'Acc' : (slotKey == mainSlot ? 'Main' : 'Aux'),
+              isMain: !isBackGroup && slotKey == mainSlot,
+              currentName:
+                  liftNames[slotKey] ?? liftDefaults[slotKey] ?? slotKey,
               onTap: () => _openPicker(context, slotKey),
             ),
         ],
@@ -261,16 +270,15 @@ class _LiftGroupCard extends StatelessWidget {
   }
 
   void _openPicker(BuildContext context, String slotKey) {
-    final currentName =
-        liftNames[slotKey] ?? liftDefaults[slotKey] ?? slotKey;
+    final currentName = liftNames[slotKey] ?? liftDefaults[slotKey] ?? slotKey;
     showModalBottomSheet<void>(
-      context:            context,
+      context: context,
       isScrollControlled: true,
-      backgroundColor:    Colors.transparent,
+      backgroundColor: Colors.transparent,
       builder: (_) => _LiftPickerSheet(
-        slotKey:     slotKey,
+        slotKey: slotKey,
         currentName: currentName,
-        onSelected:  (name) => onNameSet(slotKey, name),
+        onSelected: (name) => onNameSet(slotKey, name),
       ),
     );
   }
@@ -286,10 +294,10 @@ class _LiftSlotTile extends StatelessWidget {
     required this.currentName,
     required this.onTap,
   });
-  final String       slotKey;
-  final String       badgeLabel;
-  final bool         isMain;
-  final String       currentName;
+  final String slotKey;
+  final String badgeLabel;
+  final bool isMain;
+  final String currentName;
   final VoidCallback onTap;
 
   @override
@@ -297,14 +305,14 @@ class _LiftSlotTile extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     return InkWell(
-      onTap:        onTap,
+      onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         child: Row(
           children: [
             Container(
-              width:   46,
+              width: 46,
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
                 color: isMain
@@ -325,8 +333,7 @@ class _LiftSlotTile extends StatelessWidget {
             Expanded(
               child: Text(currentName, style: tt.bodyMedium),
             ),
-            Icon(Icons.chevron_right,
-                size: 18, color: cs.onSurfaceVariant),
+            Icon(Icons.chevron_right, size: 18, color: cs.onSurfaceVariant),
           ],
         ),
       ),
@@ -342,8 +349,8 @@ class _LiftPickerSheet extends StatefulWidget {
     required this.currentName,
     required this.onSelected,
   });
-  final String                slotKey;
-  final String                currentName;
+  final String slotKey;
+  final String currentName;
   final void Function(String) onSelected;
 
   @override
@@ -358,12 +365,10 @@ class _LiftPickerSheetState extends State<_LiftPickerSheet> {
   void initState() {
     super.initState();
     final presets = liftCatalogue[widget.slotKey] ?? [];
-    final isCustom = !presets
-        .where((p) => p != kCustomEntry)
-        .contains(widget.currentName);
+    final isCustom =
+        !presets.where((p) => p != kCustomEntry).contains(widget.currentName);
     _showCustomField = isCustom;
-    _ctrl = TextEditingController(
-        text: isCustom ? widget.currentName : '');
+    _ctrl = TextEditingController(text: isCustom ? widget.currentName : '');
   }
 
   @override
@@ -380,31 +385,31 @@ class _LiftPickerSheetState extends State<_LiftPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final presets = liftCatalogue[widget.slotKey] ?? [];
-    final cs      = Theme.of(context).colorScheme;
-    final tt      = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
-      minChildSize:     0.35,
-      maxChildSize:     0.85,
-      expand:           false,
+      minChildSize: 0.35,
+      maxChildSize: 0.85,
+      expand: false,
       builder: (_, scrollCtrl) => Container(
         decoration: BoxDecoration(
           // Use theme surface container — visible against scaffold on both modes
-          color:        cs.surfaceContainer,
+          color: cs.surfaceContainer,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-
             // Handle
             Center(
               child: Container(
                 margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 40, height: 4,
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
-                  color:        cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -424,19 +429,19 @@ class _LiftPickerSheetState extends State<_LiftPickerSheet> {
             Expanded(
               child: ListView.builder(
                 controller: scrollCtrl,
-                itemCount:  presets.length,
+                itemCount: presets.length,
                 itemBuilder: (_, i) {
-                  final preset           = presets[i];
+                  final preset = presets[i];
                   final isCustomSentinel = preset == kCustomEntry;
-                  final isCurrent        = !isCustomSentinel &&
-                      preset == widget.currentName;
+                  final isCurrent =
+                      !isCustomSentinel && preset == widget.currentName;
 
                   if (isCustomSentinel) {
                     return _CustomEntryTile(
-                      ctrl:      _ctrl,
+                      ctrl: _ctrl,
                       showField: _showCustomField,
-                      onToggle:  () => setState(
-                          () => _showCustomField = !_showCustomField),
+                      onToggle: () =>
+                          setState(() => _showCustomField = !_showCustomField),
                       onConfirm: () {
                         final val = _ctrl.text.trim();
                         if (val.isNotEmpty) _select(val);
@@ -445,10 +450,9 @@ class _LiftPickerSheetState extends State<_LiftPickerSheet> {
                   }
 
                   return ListTile(
-                    title:    Text(preset),
-                    trailing: isCurrent
-                        ? Icon(Icons.check, color: cs.primary)
-                        : null,
+                    title: Text(preset),
+                    trailing:
+                        isCurrent ? Icon(Icons.check, color: cs.primary) : null,
                     onTap: () => _select(preset),
                   );
                 },
@@ -471,9 +475,9 @@ class _CustomEntryTile extends StatelessWidget {
     required this.onConfirm,
   });
   final TextEditingController ctrl;
-  final bool                  showField;
-  final VoidCallback          onToggle;
-  final VoidCallback          onConfirm;
+  final bool showField;
+  final VoidCallback onToggle;
+  final VoidCallback onConfirm;
 
   @override
   Widget build(BuildContext context) {
@@ -482,11 +486,10 @@ class _CustomEntryTile extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ListTile(
-          leading:  Icon(Icons.edit_outlined, color: cs.primary),
-          title:    const Text('Custom…'),
-          trailing: Icon(
-              showField ? Icons.expand_less : Icons.expand_more,
-              size: 18),
+          leading: Icon(Icons.edit_outlined, color: cs.primary),
+          title: const Text('Custom…'),
+          trailing:
+              Icon(showField ? Icons.expand_less : Icons.expand_more, size: 18),
           onTap: onToggle,
         ),
         if (showField)
@@ -496,13 +499,13 @@ class _CustomEntryTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: TextField(
-                    controller:         ctrl,
-                    autofocus:          true,
+                    controller: ctrl,
+                    autofocus: true,
                     textCapitalization: TextCapitalization.words,
                     decoration: InputDecoration(
-                      hintText:   'Enter exercise name',
+                      hintText: 'Enter exercise name',
                       suffixIcon: IconButton(
-                        icon:      const Icon(Icons.clear, size: 18),
+                        icon: const Icon(Icons.clear, size: 18),
                         onPressed: () => ctrl.clear(),
                       ),
                     ),
@@ -512,7 +515,7 @@ class _CustomEntryTile extends StatelessWidget {
                 const SizedBox(width: 12),
                 ElevatedButton(
                   onPressed: onConfirm,
-                  child:     const Text('OK'),
+                  child: const Text('OK'),
                 ),
               ],
             ),
@@ -525,34 +528,33 @@ class _CustomEntryTile extends StatelessWidget {
 // ── Frequency selector ───────────────────────────────────────────────────────────────────
 
 class _FrequencySelector extends StatelessWidget {
-  const _FrequencySelector(
-      {required this.selected, required this.onSelected});
-  final ProgramFrequency?               selected;
+  const _FrequencySelector({required this.selected, required this.onSelected});
+  final ProgramFrequency? selected;
   final void Function(ProgramFrequency) onSelected;
 
   @override
   Widget build(BuildContext context) {
     const options = [
-      (ProgramFrequency.two,   '2x', '2 days/week'),
+      (ProgramFrequency.two, '2x', '2 days/week'),
       (ProgramFrequency.three, '3x', '3 days/week'),
-      (ProgramFrequency.four,  '4x', '4 days/week'),
-      (ProgramFrequency.five,  '5x', '5 days/week'),
-      (ProgramFrequency.six,   '6x', '6 days/week'),
+      (ProgramFrequency.four, '4x', '4 days/week'),
+      (ProgramFrequency.five, '5x', '5 days/week'),
+      (ProgramFrequency.six, '6x', '6 days/week'),
     ];
     return GridView.count(
-      crossAxisCount:   3,
-      mainAxisSpacing:  8,
+      crossAxisCount: 3,
+      mainAxisSpacing: 8,
       crossAxisSpacing: 8,
-      shrinkWrap:       true,
-      physics:          const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       childAspectRatio: 1.2,
       children: [
         for (final (freq, label, sub) in options)
           _FrequencyButton(
-            label:      label,
-            subtitle:   sub,
+            label: label,
+            subtitle: sub,
             isSelected: selected == freq,
-            onTap:      () => onSelected(freq),
+            onTap: () => onSelected(freq),
           ),
       ],
     );
@@ -566,9 +568,9 @@ class _FrequencyButton extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
   });
-  final String       label;
-  final String       subtitle;
-  final bool         isSelected;
+  final String label;
+  final String subtitle;
+  final bool isSelected;
   final VoidCallback onTap;
 
   @override
@@ -601,7 +603,9 @@ class _FrequencyButton extends StatelessWidget {
             Text(
               subtitle,
               style: tt.labelSmall?.copyWith(
-                color: isSelected ? cs.onPrimary.withValues(alpha: 0.85) : cs.onSurfaceVariant,
+                color: isSelected
+                    ? cs.onPrimary.withValues(alpha: 0.85)
+                    : cs.onSurfaceVariant,
               ),
               textAlign: TextAlign.center,
             ),
@@ -624,16 +628,19 @@ class _TrainingMaxesInput extends StatelessWidget {
     required this.onAuxMaxUpdated,
     required this.onSingleEightUpdated,
   });
-  final Map<String, double>           mainMaxes;
-  final Map<String, double>           auxMaxes;
-  final Map<String, double>           singleEightPercentages;
-  final Map<String, String>           liftNames;
+  final Map<String, double> mainMaxes;
+  final Map<String, double> auxMaxes;
+  final Map<String, double> singleEightPercentages;
+  final Map<String, String> liftNames;
   final void Function(String, double) onMainMaxUpdated;
   final void Function(String, double) onAuxMaxUpdated;
   final void Function(String, double) onSingleEightUpdated;
 
   static const _mainSlots = [
-    'squat', 'bench_press', 'deadlift', 'overhead_press',
+    'squat',
+    'bench_press',
+    'deadlift',
+    'overhead_press',
   ];
 
   @override
@@ -643,26 +650,23 @@ class _TrainingMaxesInput extends StatelessWidget {
       children: [
         for (final slotKey in _mainSlots) ...[
           _MaxInput(
-            liftId:               slotKey,
-            displayName:          liftNames[slotKey] ??
-                                  liftDefaults[slotKey] ??
-                                  slotKey,
-            currentMax:           mainMaxes[slotKey],
-            singleEightPct:       singleEightPercentages[slotKey] ??
-                                  kDefaultSingleAt8,
-            hintText:             'Enter max in kg',
-            onChanged:            (v) => onMainMaxUpdated(slotKey, v),
+            key: ValueKey(slotKey),
+            liftId: slotKey,
+            displayName: liftNames[slotKey] ?? liftDefaults[slotKey] ?? slotKey,
+            currentMax: mainMaxes[slotKey],
+            singleEightPct:
+                singleEightPercentages[slotKey] ?? kDefaultSingleAt8,
+            hintText: 'Enter max in kg',
+            onChanged: (v) => onMainMaxUpdated(slotKey, v),
             onSingleEightChanged: (v) => onSingleEightUpdated(slotKey, v),
           ),
           const SizedBox(height: 12),
         ],
-
         const SizedBox(height: 8),
-
         _AuxiliaryMaxesSection(
-          mainMaxes:       mainMaxes,
-          auxMaxes:        auxMaxes,
-          liftNames:       liftNames,
+          mainMaxes: mainMaxes,
+          auxMaxes: auxMaxes,
+          liftNames: liftNames,
           onAuxMaxUpdated: onAuxMaxUpdated,
         ),
       ],
@@ -679,18 +683,18 @@ class _AuxiliaryMaxesSection extends StatelessWidget {
     required this.liftNames,
     required this.onAuxMaxUpdated,
   });
-  final Map<String, double>           mainMaxes;
-  final Map<String, double>           auxMaxes;
-  final Map<String, String>           liftNames;
+  final Map<String, double> mainMaxes;
+  final Map<String, double> auxMaxes;
+  final Map<String, String> liftNames;
   final void Function(String, double) onAuxMaxUpdated;
 
   static const _auxRows = [
-    (slot: 'front_squat',      parent: 'squat'),
-    (slot: 'squat_aux2',       parent: 'squat'),
+    (slot: 'front_squat', parent: 'squat'),
+    (slot: 'squat_aux2', parent: 'squat'),
     (slot: 'close_grip_bench', parent: 'bench_press'),
-    (slot: 'bench_aux2',       parent: 'bench_press'),
-    (slot: 'deadlift_aux',     parent: 'deadlift'),
-    (slot: 'ohp_aux',          parent: 'overhead_press'),
+    (slot: 'bench_aux2', parent: 'bench_press'),
+    (slot: 'deadlift_aux', parent: 'deadlift'),
+    (slot: 'ohp_aux', parent: 'overhead_press'),
   ];
 
   @override
@@ -700,13 +704,13 @@ class _AuxiliaryMaxesSection extends StatelessWidget {
 
     return Card(
       // No hardcoded color — uses cardTheme.color
-      shape:  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: EdgeInsets.zero,
       child: ExpansionTile(
-        tilePadding:     const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         childrenPadding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-        shape:           const Border(),
-        collapsedShape:  const Border(),
+        shape: const Border(),
+        collapsedShape: const Border(),
         title: Text(
           'Auxiliary Maxes',
           style: tt.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
@@ -725,14 +729,13 @@ class _AuxiliaryMaxesSection extends StatelessWidget {
           const SizedBox(height: 12),
           for (final row in _auxRows) ...[
             _AuxMaxRow(
-              slotKey:       row.slot,
-              parentKey:     row.parent,
-              displayName:   liftNames[row.slot] ??
-                             liftDefaults[row.slot] ??
-                             row.slot,
+              slotKey: row.slot,
+              parentKey: row.parent,
+              displayName:
+                  liftNames[row.slot] ?? liftDefaults[row.slot] ?? row.slot,
               parentMainMax: mainMaxes[row.parent],
               currentAuxMax: auxMaxes[row.slot],
-              onChanged:     (v) => onAuxMaxUpdated(row.slot, v),
+              onChanged: (v) => onAuxMaxUpdated(row.slot, v),
             ),
             const SizedBox(height: 10),
           ],
@@ -752,11 +755,11 @@ class _AuxMaxRow extends StatefulWidget {
     required this.currentAuxMax,
     required this.onChanged,
   });
-  final String       slotKey;
-  final String       parentKey;
-  final String       displayName;
-  final double?      parentMainMax;
-  final double?      currentAuxMax;
+  final String slotKey;
+  final String parentKey;
+  final String displayName;
+  final double? parentMainMax;
+  final double? currentAuxMax;
   final void Function(double) onChanged;
 
   @override
@@ -770,9 +773,7 @@ class _AuxMaxRowState extends State<_AuxMaxRow> {
   void initState() {
     super.initState();
     _ctrl = TextEditingController(
-      text: widget.currentAuxMax != null
-          ? widget.currentAuxMax.toString()
-          : '',
+      text: widget.currentAuxMax != null ? widget.currentAuxMax.toString() : '',
     );
   }
 
@@ -807,17 +808,17 @@ class _AuxMaxRowState extends State<_AuxMaxRow> {
         Expanded(
           flex: 4,
           child: TextField(
-            controller:   _ctrl,
+            controller: _ctrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: tt.bodyMedium,
             decoration: InputDecoration(
-              isDense:     true,
-              hintText:    _autoHint,
-              hintStyle:   tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-              suffixText:  'kg',
+              isDense: true,
+              hintText: _autoHint,
+              hintStyle: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              suffixText: 'kg',
               suffixStyle: tt.bodySmall,
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 10),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             ),
             onChanged: (v) {
               final parsed = double.tryParse(v);
@@ -835,6 +836,7 @@ class _AuxMaxRowState extends State<_AuxMaxRow> {
 /// Renders the training-max text field and the Single @8% field for one main lift.
 class _MaxInput extends StatefulWidget {
   const _MaxInput({
+    super.key,
     required this.liftId,
     required this.displayName,
     required this.currentMax,
@@ -843,11 +845,11 @@ class _MaxInput extends StatefulWidget {
     required this.onSingleEightChanged,
     this.hintText = 'Enter max in kg',
   });
-  final String  liftId;
-  final String  displayName;
+  final String liftId;
+  final String displayName;
   final double? currentMax;
-  final double  singleEightPct;
-  final String  hintText;
+  final double singleEightPct;
+  final String hintText;
   final void Function(double) onChanged;
   final void Function(double) onSingleEightChanged;
 
@@ -858,23 +860,39 @@ class _MaxInput extends StatefulWidget {
 class _MaxInputState extends State<_MaxInput> {
   late final TextEditingController _tmCtrl;
   late final TextEditingController _s8Ctrl;
+  late final FocusNode _tmFocus;
+  late final FocusNode _s8Focus;
 
   @override
   void initState() {
     super.initState();
     _tmCtrl = TextEditingController(
-        text: widget.currentMax != null
-            ? widget.currentMax.toString()
-            : '');
-    _s8Ctrl = TextEditingController(
-        text: widget.singleEightPct.toString());
+        text: widget.currentMax != null ? widget.currentMax.toString() : '');
+    _s8Ctrl = TextEditingController(text: widget.singleEightPct.toString());
+    _tmFocus = FocusNode();
+    _s8Focus = FocusNode();
   }
 
   @override
   void dispose() {
     _tmCtrl.dispose();
     _s8Ctrl.dispose();
+    _tmFocus.dispose();
+    _s8Focus.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _MaxInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final maxText = widget.currentMax?.toString() ?? '';
+    if (!_tmFocus.hasFocus && maxText != _tmCtrl.text) {
+      _tmCtrl.text = maxText;
+    }
+    final singleText = widget.singleEightPct.toString();
+    if (!_s8Focus.hasFocus && singleText != _s8Ctrl.text) {
+      _s8Ctrl.text = singleText;
+    }
   }
 
   @override
@@ -893,17 +911,18 @@ class _MaxInputState extends State<_MaxInput> {
             Expanded(
               flex: 3,
               child: TextField(
-                controller:   _tmCtrl,
-                keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true),
+                controller: _tmCtrl,
+                focusNode: _tmFocus,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                  hintText:    widget.hintText,
-                  suffixText:  'kg',
+                  hintText: widget.hintText,
+                  suffixText: 'kg',
                   suffixStyle: tt.bodyMedium,
                 ),
                 onChanged: (v) {
-                  final parsed = double.tryParse(v);
-                  if (parsed != null) widget.onChanged(parsed);
+                  final parsed = double.tryParse(v.replaceAll(',', '.'));
+                  widget.onChanged(parsed ?? 0.0);
                 },
               ),
             ),
@@ -916,24 +935,24 @@ class _MaxInputState extends State<_MaxInput> {
                 children: [
                   Text(
                     'Single @8%',
-                    style: tt.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant),
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                   ),
                   const SizedBox(height: 4),
                   TextField(
-                    controller:   _s8Ctrl,
-                    keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true),
+                    controller: _s8Ctrl,
+                    focusNode: _s8Focus,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
-                      isDense:  true,
+                      isDense: true,
                       hintText: '0.9',
-                      hintStyle: tt.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant),
+                      hintStyle:
+                          tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 12),
                     ),
                     onChanged: (v) {
-                      final parsed = double.tryParse(v);
+                      final parsed = double.tryParse(v.replaceAll(',', '.'));
                       if (parsed != null && parsed > 0 && parsed <= 1) {
                         widget.onSingleEightChanged(parsed);
                       }

@@ -30,24 +30,26 @@ const kAuxTmRatio = 0.9;
 
 /// Initial map so every main lift already has the workbook default.
 const _defaultSingleEightPercentages = <String, double>{
-  'squat':          kDefaultSingleAt8,
-  'bench_press':    kDefaultSingleAt8,
-  'deadlift':       kDefaultSingleAt8,
+  'squat': kDefaultSingleAt8,
+  'bench_press': kDefaultSingleAt8,
+  'deadlift': kDefaultSingleAt8,
   'overhead_press': kDefaultSingleAt8,
 };
 
 /// Auxiliary lift slot keys grouped by their parent main lift.
 const auxSlotsByMain = <String, List<String>>{
-  'squat':          ['front_squat', 'squat_aux2'],
-  'bench_press':    ['close_grip_bench', 'bench_aux2'],
-  'deadlift':       ['deadlift_aux'],
+  'squat': ['front_squat', 'squat_aux2'],
+  'bench_press': ['close_grip_bench', 'bench_aux2'],
+  'deadlift': ['deadlift_aux'],
   'overhead_press': ['ohp_aux'],
 };
 
 /// All auxiliary slot keys in display order.
 const _allAuxKeys = [
-  'front_squat', 'squat_aux2',
-  'close_grip_bench', 'bench_aux2',
+  'front_squat',
+  'squat_aux2',
+  'close_grip_bench',
+  'bench_aux2',
   'deadlift_aux',
   'ohp_aux',
 ];
@@ -59,27 +61,27 @@ const backKeys = ['barbell_rows', 'dumbbell_rows', 'pulldowns'];
 const _allNonMainKeys = [..._allAuxKeys, ...backKeys];
 
 const _defaultAux = <String, String>{
-  'squat':          'front_squat',
-  'bench_press':    'close_grip_bench',
-  'deadlift':       'deadlift_aux',
+  'squat': 'front_squat',
+  'bench_press': 'close_grip_bench',
+  'deadlift': 'deadlift_aux',
   'overhead_press': 'ohp_aux',
 };
 
 /// Aux options per main lift (slot key -> list of named options).
 const auxOptions = <String, List<({String key, String label})>>{
   'squat': [
-    (key: 'front_squat',      label: 'Leg Press'),
-    (key: 'squat_aux2',       label: 'Wider Stance Squat'),
+    (key: 'front_squat', label: 'Leg Press'),
+    (key: 'squat_aux2', label: 'Wider Stance Squat'),
   ],
   'bench_press': [
     (key: 'close_grip_bench', label: 'DB Bench'),
-    (key: 'bench_aux2',       label: 'Incline DB Press'),
+    (key: 'bench_aux2', label: 'Incline DB Press'),
   ],
   'deadlift': [
-    (key: 'deadlift_aux',     label: 'Trap Bar Deadlift'),
+    (key: 'deadlift_aux', label: 'Trap Bar Deadlift'),
   ],
   'overhead_press': [
-    (key: 'ohp_aux',          label: 'DB Schulterdr\u00FCcken'),
+    (key: 'ohp_aux', label: 'DB Schulterdr\u00FCcken'),
   ],
 };
 
@@ -90,13 +92,13 @@ const auxOptions = <String, List<({String key, String label})>>{
 class SetupState {
   const SetupState({
     this.selectedFrequency,
-    this.trainingMaxes            = const {},
-    this.auxTrainingMaxes         = const {},
-    this.singleEightPercentages   = _defaultSingleEightPercentages,
-    this.selectedAuxiliaries      = _defaultAux,
-    this.liftNames                = liftDefaults,
-    this.isValid                  = false,
-    this.isSaving                 = false,
+    this.trainingMaxes = const {},
+    this.auxTrainingMaxes = const {},
+    this.singleEightPercentages = _defaultSingleEightPercentages,
+    this.selectedAuxiliaries = _defaultAux,
+    this.liftNames = liftDefaults,
+    this.isValid = false,
+    this.isSaving = false,
     this.errorMessage,
   });
 
@@ -106,34 +108,33 @@ class SetupState {
   final Map<String, double> singleEightPercentages;
   final Map<String, String> selectedAuxiliaries;
   final Map<String, String> liftNames;
-  final bool    isValid;
-  final bool    isSaving;
+  final bool isValid;
+  final bool isSaving;
   final String? errorMessage;
 
   SetupState copyWith({
-    ProgramFrequency?    selectedFrequency,
+    ProgramFrequency? selectedFrequency,
     Map<String, double>? trainingMaxes,
     Map<String, double>? auxTrainingMaxes,
     Map<String, double>? singleEightPercentages,
     Map<String, String>? selectedAuxiliaries,
     Map<String, String>? liftNames,
-    bool?                isValid,
-    bool?                isSaving,
-    String?              errorMessage,
-    bool                 clearError = false,
+    bool? isValid,
+    bool? isSaving,
+    String? errorMessage,
+    bool clearError = false,
   }) =>
       SetupState(
-        selectedFrequency:         selectedFrequency         ?? this.selectedFrequency,
-        trainingMaxes:             trainingMaxes             ?? this.trainingMaxes,
-        auxTrainingMaxes:          auxTrainingMaxes          ?? this.auxTrainingMaxes,
-        singleEightPercentages:    singleEightPercentages    ?? this.singleEightPercentages,
-        selectedAuxiliaries:       selectedAuxiliaries       ?? this.selectedAuxiliaries,
-        liftNames:                 liftNames                 ?? this.liftNames,
-        isValid:                   isValid                   ?? this.isValid,
-        isSaving:                  isSaving                  ?? this.isSaving,
-        errorMessage: clearError
-            ? null
-            : (errorMessage ?? this.errorMessage),
+        selectedFrequency: selectedFrequency ?? this.selectedFrequency,
+        trainingMaxes: trainingMaxes ?? this.trainingMaxes,
+        auxTrainingMaxes: auxTrainingMaxes ?? this.auxTrainingMaxes,
+        singleEightPercentages:
+            singleEightPercentages ?? this.singleEightPercentages,
+        selectedAuxiliaries: selectedAuxiliaries ?? this.selectedAuxiliaries,
+        liftNames: liftNames ?? this.liftNames,
+        isValid: isValid ?? this.isValid,
+        isSaving: isSaving ?? this.isSaving,
+        errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       );
 }
 
@@ -195,11 +196,11 @@ class SetupNotifier extends Notifier<SetupState> {
 
   void clearAllMaxes() {
     state = state.copyWith(
-      trainingMaxes:          {},
-      auxTrainingMaxes:       {},
+      trainingMaxes: {},
+      auxTrainingMaxes: {},
       singleEightPercentages: _defaultSingleEightPercentages,
-      selectedAuxiliaries:    _defaultAux,
-      liftNames:              liftDefaults,
+      selectedAuxiliaries: _defaultAux,
+      liftNames: liftDefaults,
     );
     _validate();
   }
@@ -214,9 +215,16 @@ class SetupNotifier extends Notifier<SetupState> {
     } else if (!allPresent) {
       final missing =
           mainLiftKeys.where((l) => (state.trainingMaxes[l] ?? 0) <= 0);
-      error = 'Missing maxes for: ${missing.join(', ')}';
+      final labels = missing.map(
+        (l) => state.liftNames[l] ?? liftDefaults[l] ?? l,
+      );
+      error = 'Missing maxes for: ${labels.join(', ')}';
     }
-    state = state.copyWith(isValid: isValid, errorMessage: error);
+    state = state.copyWith(
+      isValid: isValid,
+      errorMessage: error,
+      clearError: error == null,
+    );
   }
 
   Future<void> saveAndGenerate() async {
@@ -224,17 +232,17 @@ class SetupNotifier extends Notifier<SetupState> {
     state = state.copyWith(isSaving: true, clearError: true);
 
     try {
-      final db           = ref.read(databaseProvider);
-      final liftRepo     = ref.read(liftRepositoryProvider);
-      final tmRepo       = ref.read(trainingMaxRepositoryProvider);
-      final programRepo  = ref.read(programRepositoryProvider);
+      final db = ref.read(databaseProvider);
+      final liftRepo = ref.read(liftRepositoryProvider);
+      final tmRepo = ref.read(trainingMaxRepositoryProvider);
+      final programRepo = ref.read(programRepositoryProvider);
       final generatorSvc = ref.read(workoutGeneratorServiceProvider);
-      final now          = DateTime.now();
-      final frequency    = state.selectedFrequency!;
+      final now = DateTime.now();
+      final frequency = state.selectedFrequency!;
 
       // Resolve DB lift IDs
       final allLiftKeys = [...mainLiftKeys, ..._allNonMainKeys];
-      final liftDbIds   = <String, int>{};
+      final liftDbIds = <String, int>{};
       for (final liftId in allLiftKeys) {
         final lift = await liftRepo.getLiftByName(liftId);
         if (lift != null) liftDbIds[liftId] = lift.id;
@@ -247,12 +255,12 @@ class SetupNotifier extends Notifier<SetupState> {
 
       // Build full TM map
       final deadliftTm = state.trainingMaxes['deadlift']!;
-      final fullTmMap  = <String, double>{
+      final fullTmMap = <String, double>{
         for (final key in mainLiftKeys) key: state.trainingMaxes[key]!,
       };
 
       for (final mainKey in mainLiftKeys) {
-        final mainTm  = state.trainingMaxes[mainKey]!;
+        final mainTm = state.trainingMaxes[mainKey]!;
         final auxKeys = auxSlotsByMain[mainKey] ?? [];
         for (final auxKey in auxKeys) {
           final userValue = state.auxTrainingMaxes[auxKey];
@@ -278,13 +286,13 @@ class SetupNotifier extends Notifier<SetupState> {
         }
 
         for (final key in mainLiftKeys) {
-          final s8p  = state.singleEightPercentages[key] ?? kDefaultSingleAt8;
+          final s8p = state.singleEightPercentages[key] ?? kDefaultSingleAt8;
           final dbId = liftDbIds[key]!;
           await tmRepo.saveMax(TrainingMaxesCompanion.insert(
-            liftId:                dbId,
-            value:                 state.trainingMaxes[key]!,
+            liftId: dbId,
+            value: state.trainingMaxes[key]!,
             singleEightPercentage: Value(s8p),
-            effectiveDate:         now,
+            effectiveDate: now,
           ));
         }
 
@@ -292,19 +300,19 @@ class SetupNotifier extends Notifier<SetupState> {
           final dbId = liftDbIds[key];
           if (dbId == null) continue;
           await tmRepo.saveMax(TrainingMaxesCompanion.insert(
-            liftId:        dbId,
-            value:         fullTmMap[key]!,
+            liftId: dbId,
+            value: fullTmMap[key]!,
             effectiveDate: now,
           ));
         }
 
         final programId = await programRepo.saveProgram(
           ProgramsCompanion.insert(
-            name:      'My Program',
+            name: 'My Program',
             frequency: frequency.name,
             createdAt: now,
             updatedAt: now,
-            isActive:  const Value(true),
+            isActive: const Value(true),
           ),
         );
 
@@ -312,7 +320,7 @@ class SetupNotifier extends Notifier<SetupState> {
         for (int w = 1; w <= 21; w++) {
           final weekId = await programRepo.saveWeek(
             WorkoutWeeksCompanion.insert(
-              programId:  programId,
+              programId: programId,
               weekNumber: w,
             ),
           );
@@ -320,18 +328,18 @@ class SetupNotifier extends Notifier<SetupState> {
         }
 
         await generatorSvc.generateFullProgram(
-          programId:     programId,
-          frequency:     frequency,
-          weeks:         weeks,
+          programId: programId,
+          frequency: frequency,
+          weeks: weeks,
           trainingMaxes: fullTmMap,
-          liftDbIds:     liftDbIds,
+          liftDbIds: liftDbIds,
         );
       });
 
       state = state.copyWith(isSaving: false);
     } catch (e) {
       state = state.copyWith(
-        isSaving:     false,
+        isSaving: false,
         errorMessage: 'Failed to save: $e',
       );
     }
