@@ -11,6 +11,7 @@ import '../../domain/models/enums.dart';
 import '../../domain/models/exercise_log.dart' as domain;
 import '../../domain/models/exercise_prescription.dart' as domain;
 import '../../domain/services/progression_service.dart';
+import '../../domain/services/workout_generator_service.dart';
 
 // ---------------------------------------------------------------------------
 // toDomain extensions
@@ -20,13 +21,13 @@ import '../../domain/services/progression_service.dart';
 
 extension ExerciseLogToDomain on ExerciseLog {
   domain.ExerciseLog toDomain() => domain.ExerciseLog(
-        id:             id.toString(),
+        id: id.toString(),
         prescriptionId: prescriptionId.toString(),
-        completedSets:  completedSets,
-        repsOnLastSet:  repsOnLastSet,
-        notes:          notes,
-        videoUrl:       videoUrl,
-        completedAt:    completedAt,
+        completedSets: completedSets,
+        repsOnLastSet: repsOnLastSet,
+        notes: notes,
+        videoUrl: videoUrl,
+        completedAt: completedAt,
       );
 }
 
@@ -36,17 +37,17 @@ extension ExercisePrescriptionToDomain on ExercisePrescription {
   /// display name — it is used as liftId for progression lookup.
   domain.ExercisePrescription toDomain(String liftName) =>
       domain.ExercisePrescription(
-        id:                  id.toString(),
-        workoutDayId:        workoutDayId.toString(),
-        liftId:              liftName,
+        id: id.toString(),
+        workoutDayId: workoutDayId.toString(),
+        liftId: liftName,
         trainingMaxSnapshot: trainingMaxSnapshot,
-        intensity:           intensity,
-        workingWeight:       workingWeight,
-        repsPerNormalSet:    repsPerNormalSet,
-        repOutTarget:        repOutTarget,
-        setGoal:             setGoal,
-        displayOrder:        displayOrder,
-        isPrimaryBlock:      isPrimaryBlock,
+        intensity: intensity,
+        workingWeight: workingWeight,
+        repsPerNormalSet: repsPerNormalSet,
+        repOutTarget: repOutTarget,
+        setGoal: setGoal,
+        displayOrder: displayOrder,
+        isPrimaryBlock: isPrimaryBlock,
       );
 }
 
@@ -71,9 +72,9 @@ class TodayWorkoutState {
   final int weekNumber;
   final int dayIndex;
   final List<ExercisePrescription> prescriptions;
-  final Map<int, ExerciseLog>      logs;
-  final Map<int, Lift>             lifts;
-  final bool                       isCompleted;
+  final Map<int, ExerciseLog> logs;
+  final Map<int, Lift> lifts;
+  final bool isCompleted;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +88,7 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
   Future<TodayWorkoutState?> _load() async {
     final programRepo = ref.read(programRepositoryProvider);
     final workoutRepo = ref.read(workoutRepositoryProvider);
-    final liftRepo    = ref.read(liftRepositoryProvider);
+    final liftRepo = ref.read(liftRepositoryProvider);
 
     final program = await programRepo.getActiveProgram();
     if (program == null) return null;
@@ -107,23 +108,23 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
       (d) {
         final status = WorkoutStatus.fromString(d.status);
         return status == WorkoutStatus.planned ||
-               status == WorkoutStatus.inProgress;
+            status == WorkoutStatus.inProgress;
       },
       orElse: () => days.last,
     );
 
     final prescriptions = await workoutRepo.getPrescriptionsForDay(todayDay.id);
-    final logs          = await workoutRepo.getLogsForDay(todayDay.id);
-    final allLifts      = await liftRepo.getAllLifts();
+    final logs = await workoutRepo.getLogsForDay(todayDay.id);
+    final allLifts = await liftRepo.getAllLifts();
 
     return TodayWorkoutState(
-      programId:     program.id,
-      workoutDayId:  todayDay.id,
-      weekNumber:    currentWeek.weekNumber,
-      dayIndex:      todayDay.dayIndex,
+      programId: program.id,
+      workoutDayId: todayDay.id,
+      weekNumber: currentWeek.weekNumber,
+      dayIndex: todayDay.dayIndex,
       prescriptions: prescriptions,
-      logs:   {for (final l in logs)     l.prescriptionId: l},
-      lifts:  {for (final l in allLifts) l.id:             l},
+      logs: {for (final l in logs) l.prescriptionId: l},
+      lifts: {for (final l in allLifts) l.id: l},
       isCompleted:
           WorkoutStatus.fromString(todayDay.status) == WorkoutStatus.completed,
     );
@@ -138,24 +139,24 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
     final current = state.value;
     if (current == null) return;
 
-    final programRepo    = ref.read(programRepositoryProvider);
-    final tmRepo         = ref.read(trainingMaxRepositoryProvider);
+    final programRepo = ref.read(programRepositoryProvider);
+    final tmRepo = ref.read(trainingMaxRepositoryProvider);
     final adjustmentRepo = ref.read(progressionAdjustmentRepositoryProvider);
-    final now            = DateTime.now();
+    final now = DateTime.now();
 
     // 1. Mark the day completed using a partial update (patchDay) so that
     //    required columns workoutWeekId and dayIndex are not overwritten.
     await programRepo.patchDay(
       current.workoutDayId,
       WorkoutDaysCompanion(
-        status:      Value(WorkoutStatus.completed.name),
+        status: Value(WorkoutStatus.completed.name),
         completedAt: Value(now),
       ),
     );
 
     // 2. Run progression for every prescription with a recorded repsOnLastSet.
     const progressionSvc = ProgressionService();
-    final adjustments    = await adjustmentRepo.getAdjustments();
+    final adjustments = await adjustmentRepo.getAdjustments();
 
     for (final driftPresc in current.prescriptions) {
       final driftLog = current.logs[driftPresc.id];
@@ -169,9 +170,9 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
 
       try {
         final result = progressionSvc.evaluate(
-          log:                driftLog.toDomain(),
-          prescription:       driftPresc.toDomain(liftRow.name),
-          adjustments:        adjustments,
+          log: driftLog.toDomain(),
+          prescription: driftPresc.toDomain(liftRow.name),
+          adjustments: adjustments,
           currentTrainingMax: tmRow.value,
         );
 
@@ -179,8 +180,8 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
           // Insert a new history row — do NOT upsert on liftId so every
           // progression step is preserved in the training-max history.
           await tmRepo.saveMax(TrainingMaxesCompanion.insert(
-            liftId:        liftRow.id,
-            value:         result.newTrainingMax,
+            liftId: liftRow.id,
+            value: result.newTrainingMax,
             effectiveDate: now,
           ));
         }
@@ -190,9 +191,28 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
       }
     }
 
-    // 3. Auto-advance week when all days in the current week are done.
-    //    Use patchProgram so only currentWeek + updatedAt are written.
+    // Rebuild only future, incomplete days so new training maxes are reflected
+    // without changing the completed workout that produced them.
     final program = await programRepo.getActiveProgram();
+    if (program != null) {
+      final trainingMaxes = <String, double>{};
+      for (final lift in current.lifts.values) {
+        final tm = await tmRepo.getMaxForLift(lift.id);
+        if (tm != null) trainingMaxes[lift.name] = tm.value;
+      }
+
+      await ref.read(workoutGeneratorServiceProvider).regenerateFromWeek(
+        programId: program.id,
+        fromWeek: current.weekNumber,
+        frequency: ProgramFrequency.fromString(program.frequency),
+        trainingMaxes: trainingMaxes,
+        liftDbIds: {
+          for (final lift in current.lifts.values) lift.name: lift.id
+        },
+      );
+    }
+
+    // 3. Auto-advance week when all days in the current week are done.
     if (program != null) {
       final weeks = await programRepo.getWeeksForProgram(program.id);
       final currentWeek = weeks.firstWhere(
@@ -210,7 +230,7 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
           program.id,
           ProgramsCompanion(
             currentWeek: Value(program.currentWeek + 1),
-            updatedAt:   Value(now),
+            updatedAt: Value(now),
           ),
         );
       }
