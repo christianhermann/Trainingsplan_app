@@ -63,18 +63,18 @@ class ProgressionService {
   }) {
     final outcome = _mapOutcome(
       completedSets: log.completedSets,
-      setGoal:       prescription.setGoal,
+      setGoal: prescription.setGoal,
       repsOnLastSet: log.repsOnLastSet ?? 0,
-      repOutTarget:  prescription.repOutTarget,
+      repOutTarget: prescription.repOutTarget,
     );
     final delta = _lookupDelta(
-      liftId:      prescription.liftId,
-      outcome:     outcome,
+      liftId: prescription.liftId,
+      outcome: outcome,
       adjustments: adjustments,
     );
     return ProgressionResult(
-      outcome:         outcome,
-      newTrainingMax:  currentTrainingMax + (currentTrainingMax * delta),
+      outcome: outcome,
+      newTrainingMax: currentTrainingMax + (currentTrainingMax * delta),
     );
   }
 
@@ -87,9 +87,9 @@ class ProgressionService {
   }) =>
       _mapOutcome(
         completedSets: completedSets,
-        setGoal:       setGoal,
+        setGoal: setGoal,
         repsOnLastSet: repsOnLastSet,
-        repOutTarget:  repOutTarget,
+        repOutTarget: repOutTarget,
       );
 
   // ---------------------------------------------------------------------------
@@ -100,20 +100,20 @@ class ProgressionService {
     required int repsOnLastSet,
     required int repOutTarget,
   }) {
-    // Set-failure branch: checked first per workbook rules.
-    if (completedSets < setGoal - 1) return ProgressOutcome.belowBy2;
-    if (completedSets == setGoal - 1) return ProgressOutcome.belowBy1;
+    final setsMissed = setGoal - completedSets;
+    if (setsMissed >= 2) return ProgressOutcome.belowBy2;
+    if (setsMissed == 1) return ProgressOutcome.belowBy1;
 
     // RIR branch: all sets completed — outcome driven by last-set reps.
     final diff = repsOnLastSet - repOutTarget;
     if (diff <= -2) return ProgressOutcome.belowBy2;
     if (diff == -1) return ProgressOutcome.belowBy1;
-    if (diff == 0)  return ProgressOutcome.hit;
-    if (diff == 1)  return ProgressOutcome.plus1;
-    if (diff == 2)  return ProgressOutcome.plus2;
-    if (diff == 3)  return ProgressOutcome.plus3;
-    if (diff == 4)  return ProgressOutcome.plus4;
-    return             ProgressOutcome.plus5; // diff >= 5
+    if (diff == 0) return ProgressOutcome.hit;
+    if (diff == 1) return ProgressOutcome.plus1;
+    if (diff == 2) return ProgressOutcome.plus2;
+    if (diff == 3) return ProgressOutcome.plus3;
+    if (diff == 4) return ProgressOutcome.plus4;
+    return ProgressOutcome.plus5; // diff >= 5
   }
 
   double _lookupDelta({
@@ -123,7 +123,9 @@ class ProgressionService {
   }) {
     final specific = adjustments
         .where((a) =>
-            a.liftId == liftId && a.outcome == outcome && a.appliesToTrainingMax)
+            a.liftId == liftId &&
+            a.outcome == outcome &&
+            a.appliesToTrainingMax)
         .firstOrNull;
     if (specific != null) return specific.delta;
 
