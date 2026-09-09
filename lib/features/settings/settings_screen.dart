@@ -20,8 +20,8 @@ class SettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Settings')),
       body: settingsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error:   (e, _) => Center(child: Text('Error: $e')),
-        data:    (settings) {
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (settings) {
           final s = settings ?? kDefaultSettings;
           return _SettingsList(settings: s);
         },
@@ -41,40 +41,39 @@ class _SettingsList extends ConsumerStatefulWidget {
 }
 
 class _SettingsListState extends ConsumerState<_SettingsList> {
-  int  _versionTapCount = 0;
-  bool _exporting       = false;
-  bool _importing       = false;
+  int _versionTapCount = 0;
+  bool _exporting = false;
+  bool _importing = false;
 
   AppSettings get s => widget.settings;
 
   @override
   Widget build(BuildContext context) {
     final notifier = ref.read(settingsProvider.notifier);
-    final mode     = RoundingMode.fromString(s.roundingMode);
+    final mode = RoundingMode.fromString(s.roundingMode);
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-
         // ── Units & Rounding ────────────────────────────────────────────
         const _SectionHeader('Units & Rounding'),
 
         _SettingsTile(
-          title:    'Weight unit',
+          title: 'Weight unit',
           subtitle: s.weightUnit.toUpperCase(),
-          onTap:    () => _showWeightUnitDialog(context, s),
+          onTap: () => _showWeightUnitDialog(context, s),
         ),
 
         _SettingsTile(
-          title:    'Rounding mode',
+          title: 'Rounding mode',
           subtitle: _roundingModeLabel(mode),
-          onTap:    () => _showRoundingModeDialog(context, mode),
+          onTap: () => _showRoundingModeDialog(context, mode),
         ),
 
         _SettingsTile(
-          title:    'Rounding increment',
+          title: 'Rounding increment',
           subtitle: '${s.roundingIncrement} ${s.weightUnit}',
-          onTap:    () => _showRoundingIncrementDialog(context, s),
+          onTap: () => _showRoundingIncrementDialog(context, s),
         ),
 
         const SizedBox(height: 16),
@@ -83,9 +82,9 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
         const _SectionHeader('Appearance'),
 
         _SettingsTile(
-          title:    'Theme',
+          title: 'Theme',
           subtitle: _themeModeLabel(s.themeMode),
-          onTap:    () => _showThemeModeDialog(context, s),
+          onTap: () => _showThemeModeDialog(context, s),
         ),
 
         const SizedBox(height: 16),
@@ -94,9 +93,9 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
         const _SectionHeader('Timer'),
 
         _SettingsTile(
-          title:    'Rest timer default',
+          title: 'Rest timer default',
           subtitle: _formatSeconds(s.restTimerSeconds),
-          onTap:    () => _showTimerDialog(context, s),
+          onTap: () => _showTimerDialog(context, s),
         ),
 
         const SizedBox(height: 16),
@@ -105,14 +104,14 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
         const _SectionHeader('Workout Display'),
 
         SwitchListTile(
-          title:     const Text('Show notes field'),
-          value:     s.showNotesField,
+          title: const Text('Show notes field'),
+          value: s.showNotesField,
           onChanged: (_) => notifier.toggleNotesField(),
         ),
 
         SwitchListTile(
-          title:     const Text('Show video field'),
-          value:     s.showVideoField,
+          title: const Text('Show video field'),
+          value: s.showVideoField,
           onChanged: (_) => notifier.toggleVideoField(),
         ),
 
@@ -123,9 +122,10 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
         const SizedBox(height: 4),
 
         OutlinedButton.icon(
-          icon:  _exporting
+          icon: _exporting
               ? const SizedBox(
-                  width: 16, height: 16,
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.upload_rounded),
           label: Text(_exporting ? 'Exporting…' : 'Export Training Data'),
@@ -135,9 +135,10 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
         const SizedBox(height: 8),
 
         OutlinedButton.icon(
-          icon:  _importing
+          icon: _importing
               ? const SizedBox(
-                  width: 16, height: 16,
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.download_rounded),
           label: Text(_importing ? 'Importing…' : 'Import from Backup'),
@@ -151,7 +152,7 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
         const SizedBox(height: 8),
 
         OutlinedButton.icon(
-          icon:  const Icon(Icons.delete_forever, color: Colors.redAccent),
+          icon: const Icon(Icons.delete_forever, color: Colors.redAccent),
           label: const Text('Reset all data',
               style: TextStyle(color: Colors.redAccent)),
           style: OutlinedButton.styleFrom(
@@ -162,7 +163,7 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
         const SizedBox(height: 8),
 
         OutlinedButton.icon(
-          icon:  const Icon(Icons.upload_file),
+          icon: const Icon(Icons.upload_file),
           label: const Text('Import workbook (coming soon)'),
           onPressed: null,
         ),
@@ -236,37 +237,33 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
 
   void _showWeightUnitDialog(BuildContext context, AppSettings s) {
     _showRadioDialog<String>(
-      context:    context,
-      title:      'Weight unit',
-      options:    const ['kg', 'lbs'],
-      labelOf:    (v) => v.toUpperCase(),
-      current:    s.weightUnit,
-      onSelected: (v) =>
-          ref.read(settingsProvider.notifier).setWeightUnit(v),
+      context: context,
+      title: 'Weight unit',
+      options: const ['kg', 'lbs'],
+      labelOf: (v) => v.toUpperCase(),
+      current: s.weightUnit,
+      onSelected: (v) => ref.read(settingsProvider.notifier).setWeightUnit(v),
     );
   }
 
-  void _showRoundingModeDialog(
-      BuildContext context, RoundingMode current) {
+  void _showRoundingModeDialog(BuildContext context, RoundingMode current) {
     _showRadioDialog<RoundingMode>(
-      context:    context,
-      title:      'Rounding mode',
-      options:    RoundingMode.values,
-      labelOf:    _roundingModeLabel,
-      current:    current,
-      onSelected: (v) =>
-          ref.read(settingsProvider.notifier).setRoundingMode(v),
+      context: context,
+      title: 'Rounding mode',
+      options: RoundingMode.values,
+      labelOf: _roundingModeLabel,
+      current: current,
+      onSelected: (v) => ref.read(settingsProvider.notifier).setRoundingMode(v),
     );
   }
 
-  void _showRoundingIncrementDialog(
-      BuildContext context, AppSettings s) {
+  void _showRoundingIncrementDialog(BuildContext context, AppSettings s) {
     _showRadioDialog<double>(
-      context:    context,
-      title:      'Rounding increment',
-      options:    const [1.0, 1.25, 2.5, 5.0],
-      labelOf:    (v) => '$v ${s.weightUnit}',
-      current:    s.roundingIncrement,
+      context: context,
+      title: 'Rounding increment',
+      options: const [1.0, 1.25, 2.5, 5.0],
+      labelOf: (v) => '$v ${s.weightUnit}',
+      current: s.roundingIncrement,
       onSelected: (v) =>
           ref.read(settingsProvider.notifier).setRoundingIncrement(v),
     );
@@ -274,23 +271,22 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
 
   void _showThemeModeDialog(BuildContext context, AppSettings s) {
     _showRadioDialog<String>(
-      context:    context,
-      title:      'Theme',
-      options:    const ['dark', 'light', 'system'],
-      labelOf:    _themeModeLabel,
-      current:    s.themeMode,
-      onSelected: (v) =>
-          ref.read(settingsProvider.notifier).setThemeMode(v),
+      context: context,
+      title: 'Theme',
+      options: const ['dark', 'light', 'system'],
+      labelOf: _themeModeLabel,
+      current: s.themeMode,
+      onSelected: (v) => ref.read(settingsProvider.notifier).setThemeMode(v),
     );
   }
 
   void _showTimerDialog(BuildContext context, AppSettings s) {
     _showRadioDialog<int>(
-      context:    context,
-      title:      'Rest timer default',
-      options:    const [60, 90, 120, 150, 180, 240, 300],
-      labelOf:    _formatSeconds,
-      current:    s.restTimerSeconds,
+      context: context,
+      title: 'Rest timer default',
+      options: const [60, 90, 120, 150, 180, 240, 300],
+      labelOf: _formatSeconds,
+      current: s.restTimerSeconds,
       onSelected: (v) =>
           ref.read(settingsProvider.notifier).setRestTimerSeconds(v),
     );
@@ -300,10 +296,10 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        title:   const Text('Reset all data?'),
-        content: const Text(
-            'This will delete all programs, workouts, and logs.\n'
-            'Settings are kept. This cannot be undone.'),
+        title: const Text('Reset all data?'),
+        content:
+            const Text('This will delete all programs, workouts, and logs.\n'
+                'Settings are kept. This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -312,18 +308,23 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              await ref
-                  .read(settingsProvider.notifier)
-                  .resetAllData();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('All data has been reset.')),
-                );
+              try {
+                await ref.read(settingsProvider.notifier).resetAllData();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('All data has been reset.')),
+                  );
+                }
+              } catch (error) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Reset failed: $error')),
+                  );
+                }
               }
             },
-            child: const Text('Reset',
-                style: TextStyle(color: Colors.redAccent)),
+            child:
+                const Text('Reset', style: TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
@@ -368,21 +369,21 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
   // ── Label helpers ────────────────────────────────────────────────────
 
   static String _roundingModeLabel(RoundingMode m) => switch (m) {
-    RoundingMode.nearest => 'Nearest',
-    RoundingMode.floor   => 'Always round down',
-    RoundingMode.ceiling => 'Always round up',
-  };
+        RoundingMode.nearest => 'Nearest',
+        RoundingMode.floor => 'Always round down',
+        RoundingMode.ceiling => 'Always round up',
+      };
 
   static String _themeModeLabel(String t) => switch (t) {
-    'dark'   => 'Dark',
-    'light'  => 'Light',
-    'system' => 'System default',
-    _        => t,
-  };
+        'dark' => 'Dark',
+        'light' => 'Light',
+        'system' => 'System default',
+        _ => t,
+      };
 
   static String _formatSeconds(int s) {
     final m = s ~/ 60;
-    final r = s  % 60;
+    final r = s % 60;
     return r > 0 ? '${m}m ${r}s' : '${m}m';
   }
 }
@@ -414,18 +415,20 @@ class _SettingsTile extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
   });
-  final String       title;
-  final String       subtitle;
+  final String title;
+  final String subtitle;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      title:    Text(title),
+      title: Text(title),
       trailing: Text(subtitle,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.primary)),
+          style: Theme.of(context)
+              .textTheme
+              .bodyMedium
+              ?.copyWith(color: Theme.of(context).colorScheme.primary)),
       onTap: onTap,
     );
   }
