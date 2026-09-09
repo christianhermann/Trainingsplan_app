@@ -191,39 +191,39 @@ class TodayWorkoutNotifier extends AsyncNotifier<TodayWorkoutState?> {
       }
     }
 
-    // Rebuild only future, incomplete days so new training maxes are reflected
-    // without changing the completed workout that produced them.
     final program = await programRepo.getActiveProgram();
     if (program != null) {
+      final weeks = await programRepo.getWeeksForProgram(program.id);
+      final currentWeek = weeks.firstWhere(
+        (w) => w.weekNumber == current.weekNumber,
+        orElse: () => weeks.first,
+      );
+      final updatedDays = await programRepo.getDaysForWeek(currentWeek.id);
+      final allDone = updatedDays.every(
+        (d) => WorkoutStatus.fromString(d.status) == WorkoutStatus.completed,
+      );
+
+      // Rebuild only future, incomplete days so new training maxes are reflected.
+      // Never regenerate the week whose final day was just completed.
+      final regenerationWeek =
+          allDone ? current.weekNumber + 1 : current.weekNumber;
       final trainingMaxes = <String, double>{};
       for (final lift in current.lifts.values) {
         final tm = await tmRepo.getMaxForLift(lift.id);
         if (tm != null) trainingMaxes[lift.name] = tm.value;
       }
 
-      await ref.read(workoutGeneratorServiceProvider).regenerateFromWeek(
-        programId: program.id,
-        fromWeek: current.weekNumber,
-        frequency: ProgramFrequency.fromString(program.frequency),
-        trainingMaxes: trainingMaxes,
-        liftDbIds: {
-          for (final lift in current.lifts.values) lift.name: lift.id
-        },
-      );
-    }
-
-    // 3. Auto-advance week when all days in the current week are done.
-    if (program != null) {
-      final weeks = await programRepo.getWeeksForProgram(program.id);
-      final currentWeek = weeks.firstWhere(
-        (w) => w.weekNumber == program.currentWeek,
-        orElse: () => weeks.first,
-      );
-
-      final updatedDays = await programRepo.getDaysForWeek(currentWeek.id);
-      final allDone = updatedDays.every(
-        (d) => WorkoutStatus.fromString(d.status) == WorkoutStatus.completed,
-      );
+      if (regenerationWeek <= program.totalWeeks) {
+        await ref.read(workoutGeneratorServiceProvider).regenerateFromWeek(
+          programId: program.id,
+          fromWeek: regenerationWeek,
+          frequency: ProgramFrequency.fromString(program.frequency),
+          trainingMaxes: trainingMaxes,
+          liftDbIds: {
+            for (final lift in current.lifts.values) lift.name: lift.id
+          },
+        );
+      }
 
       if (allDone && program.currentWeek < program.totalWeeks) {
         await programRepo.patchProgram(

@@ -14,10 +14,10 @@ import '../repositories/program_repository.dart';
 
 // ── JSON keys ─────────────────────────────────────────────────────────
 
-const _kVersion        = 'version';
-const _kExportedAt     = 'exportedAt';
-const _kTrainingMaxes  = 'trainingMaxes';
-const _kExerciseLogs   = 'exerciseLogs';
+const _kVersion = 'version';
+const _kExportedAt = 'exportedAt';
+const _kTrainingMaxes = 'trainingMaxes';
+const _kExerciseLogs = 'exerciseLogs';
 
 // ── Service ────────────────────────────────────────────────────────────
 
@@ -25,8 +25,8 @@ class BackupService {
   BackupService(this._tmRepo, this._workoutRepo, this._programRepo);
 
   final TrainingMaxRepository _tmRepo;
-  final WorkoutRepository     _workoutRepo;
-  final ProgramRepository     _programRepo;
+  final WorkoutRepository _workoutRepo;
+  final ProgramRepository _programRepo;
 
   // ── Export ────────────────────────────────────────────────────
 
@@ -34,16 +34,16 @@ class BackupService {
   /// writes a temp file, and triggers the OS share sheet.
   Future<void> exportAndShare() async {
     final maxes = await _tmRepo.getAllMaxes();
-    final logs  = await _collectAllLogs();
+    final logs = await _collectAllLogs();
 
     final payload = jsonEncode({
-      _kVersion:       1,
-      _kExportedAt:    DateTime.now().toIso8601String(),
+      _kVersion: 1,
+      _kExportedAt: DateTime.now().toIso8601String(),
       _kTrainingMaxes: maxes.map(_maxToJson).toList(),
-      _kExerciseLogs:  logs.map(_logToJson).toList(),
+      _kExerciseLogs: logs.map(_logToJson).toList(),
     });
 
-    final dir      = await getTemporaryDirectory();
+    final dir = await getTemporaryDirectory();
     final fileName = 'trainingsplan_backup_'
         '${DateTime.now().toIso8601String().replaceAll(':', '-').substring(0, 19)}.json';
     final file = File('${dir.path}/$fileName');
@@ -64,9 +64,9 @@ class BackupService {
   /// Returns a human-readable summary string, or throws on parse failure.
   Future<String> importFromFile() async {
     final result = await FilePicker.platform.pickFiles(
-      type:             FileType.custom,
+      type: FileType.custom,
       allowedExtensions: ['json'],
-      withData:         true,
+      withData: true,
     );
 
     if (result == null || result.files.isEmpty) {
@@ -80,7 +80,7 @@ class BackupService {
     _validateVersion(json);
 
     int maxesRestored = 0;
-    int logsRestored  = 0;
+    int logsRestored = 0;
 
     // ── Restore TrainingMaxes ──────────────────────────────────────
     final rawMaxes = json[_kTrainingMaxes] as List<dynamic>? ?? [];
@@ -88,12 +88,14 @@ class BackupService {
       final m = raw as Map<String, dynamic>;
       await _tmRepo.saveMax(
         TrainingMaxesCompanion.insert(
-          liftId:               m['liftId']           as int,
-          value:                (m['value'] as num).toDouble(),
-          singleEightPercentage: Value((m['singleEightPercentage'] as num?)?.toDouble() ?? 0.9),
-          sourceType:           Value(m['sourceType'] as String? ?? 'import'),
-          effectiveDate:        DateTime.parse(m['effectiveDate'] as String),
-          notes:                Value(m['notes'] as String?),
+          id: Value(m['id'] as int),
+          liftId: m['liftId'] as int,
+          value: (m['value'] as num).toDouble(),
+          singleEightPercentage:
+              Value((m['singleEightPercentage'] as num?)?.toDouble() ?? 0.9),
+          sourceType: Value(m['sourceType'] as String? ?? 'import'),
+          effectiveDate: DateTime.parse(m['effectiveDate'] as String),
+          notes: Value(m['notes'] as String?),
         ),
       );
       maxesRestored++;
@@ -105,12 +107,13 @@ class BackupService {
       final l = raw as Map<String, dynamic>;
       await _workoutRepo.saveLog(
         ExerciseLogsCompanion.insert(
+          id: Value(l['id'] as int),
           prescriptionId: l['prescriptionId'] as int,
-          completedSets:  Value(l['completedSets'] as int? ?? 0),
-          repsOnLastSet:  Value(l['repsOnLastSet'] as int?),
-          notes:          Value(l['notes'] as String?),
-          videoUrl:       Value(l['videoUrl'] as String?),
-          completedAt:    DateTime.parse(l['completedAt'] as String),
+          completedSets: Value(l['completedSets'] as int? ?? 0),
+          repsOnLastSet: Value(l['repsOnLastSet'] as int?),
+          notes: Value(l['notes'] as String?),
+          videoUrl: Value(l['videoUrl'] as String?),
+          completedAt: DateTime.parse(l['completedAt'] as String),
         ),
       );
       logsRestored++;
@@ -123,7 +126,7 @@ class BackupService {
 
   Future<List<ExerciseLog>> _collectAllLogs() async {
     final programs = await _programRepo.getAllPrograms();
-    final all      = <ExerciseLog>[];
+    final all = <ExerciseLog>[];
     for (final prog in programs) {
       final weeks = await _programRepo.getWeeksForProgram(prog.id);
       for (final week in weeks) {
@@ -137,30 +140,31 @@ class BackupService {
   }
 
   static Map<String, dynamic> _maxToJson(TrainingMaxe m) => {
-    'id':                    m.id,
-    'liftId':               m.liftId,
-    'value':                m.value,
-    'singleEightPercentage': m.singleEightPercentage,
-    'sourceType':           m.sourceType,
-    'effectiveDate':        m.effectiveDate.toIso8601String(),
-    'notes':                m.notes,
-  };
+        'id': m.id,
+        'liftId': m.liftId,
+        'value': m.value,
+        'singleEightPercentage': m.singleEightPercentage,
+        'sourceType': m.sourceType,
+        'effectiveDate': m.effectiveDate.toIso8601String(),
+        'notes': m.notes,
+      };
 
   static Map<String, dynamic> _logToJson(ExerciseLog l) => {
-    'id':             l.id,
-    'prescriptionId': l.prescriptionId,
-    'completedSets':  l.completedSets,
-    'repsOnLastSet':  l.repsOnLastSet,
-    'notes':          l.notes,
-    'videoUrl':       l.videoUrl,
-    'completedAt':    l.completedAt.toIso8601String(),
-  };
+        'id': l.id,
+        'prescriptionId': l.prescriptionId,
+        'completedSets': l.completedSets,
+        'repsOnLastSet': l.repsOnLastSet,
+        'notes': l.notes,
+        'videoUrl': l.videoUrl,
+        'completedAt': l.completedAt.toIso8601String(),
+      };
 
   static void _validateVersion(Map<String, dynamic> json) {
     final v = json[_kVersion];
     if (v == null) throw const FormatException('Missing version field.');
     if (v as int > 1) {
-      throw FormatException('Backup version $v is newer than this app supports.');
+      throw FormatException(
+          'Backup version $v is newer than this app supports.');
     }
   }
 }

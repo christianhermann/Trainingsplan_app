@@ -12,8 +12,7 @@ class ProgramRepository {
       (_db.select(_db.programs)..where((t) => t.isActive.equals(true)))
           .getSingleOrNull();
 
-  Future<List<Program>> getAllPrograms() =>
-      _db.select(_db.programs).get();
+  Future<List<Program>> getAllPrograms() => _db.select(_db.programs).get();
 
   Future<int> saveProgram(ProgramsCompanion companion) =>
       _db.into(_db.programs).insertOnConflictUpdate(companion);
@@ -33,8 +32,7 @@ class ProgramRepository {
 
   Future<void> setActive(int programId) async {
     await deactivateAll();
-    await (_db.update(_db.programs)
-          ..where((t) => t.id.equals(programId)))
+    await (_db.update(_db.programs)..where((t) => t.id.equals(programId)))
         .write(const ProgramsCompanion(isActive: Value(true)));
   }
 
@@ -90,10 +88,8 @@ class ProgramRepository {
     int fromWeek,
   ) async {
     final weeks = await getWeeksForProgram(programId);
-    final futureWeekIds = weeks
-        .where((w) => w.weekNumber >= fromWeek)
-        .map((w) => w.id)
-        .toList();
+    final futureWeekIds =
+        weeks.where((w) => w.weekNumber >= fromWeek).map((w) => w.id).toList();
     if (futureWeekIds.isEmpty) return;
 
     final futureDayIds = <int>[];
@@ -108,13 +104,21 @@ class ProgramRepository {
     }
     if (futureDayIds.isEmpty) return;
 
-    // Delete prescriptions first (Drift has no FK cascade).
+    final prescriptionIds = await (_db.select(_db.exercisePrescriptions)
+          ..where((t) => t.workoutDayId.isIn(futureDayIds)))
+        .map((row) => row.id)
+        .get();
+    if (prescriptionIds.isNotEmpty) {
+      await (_db.delete(_db.exerciseLogs)
+            ..where((t) => t.prescriptionId.isIn(prescriptionIds)))
+          .go();
+    }
+
     await (_db.delete(_db.exercisePrescriptions)
           ..where((t) => t.workoutDayId.isIn(futureDayIds)))
         .go();
 
-    await (_db.delete(_db.workoutDays)
-          ..where((t) => t.id.isIn(futureDayIds)))
+    await (_db.delete(_db.workoutDays)..where((t) => t.id.isIn(futureDayIds)))
         .go();
   }
 }

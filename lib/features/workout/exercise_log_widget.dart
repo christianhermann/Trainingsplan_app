@@ -11,13 +11,15 @@ class ExerciseLogWidget extends StatefulWidget {
     required this.log,
     required this.liftName,
     required this.onLogUpdated,
-    this.showHeader = true,  // fix: add parameter; default true preserves existing callers
+    this.showHeader =
+        true, // fix: add parameter; default true preserves existing callers
   });
 
   final ExercisePrescription prescription;
   final ExerciseLog? log;
   final String liftName;
   final ValueChanged<ExerciseLogsCompanion> onLogUpdated;
+
   /// When false, the lift-name row and stat-chip row are omitted.
   /// Use when the parent widget already renders those elements.
   final bool showHeader;
@@ -38,12 +40,10 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
     super.initState();
     _setsController =
         TextEditingController(text: widget.log?.completedSets.toString() ?? '');
-    _repsController =
-        TextEditingController(text: widget.log?.repsOnLastSet?.toString() ?? '');
-    _notesController =
-        TextEditingController(text: widget.log?.notes ?? '');
-    _videoController =
-        TextEditingController(text: widget.log?.videoUrl ?? '');
+    _repsController = TextEditingController(
+        text: widget.log?.repsOnLastSet?.toString() ?? '');
+    _notesController = TextEditingController(text: widget.log?.notes ?? '');
+    _videoController = TextEditingController(text: widget.log?.videoUrl ?? '');
   }
 
   @override
@@ -58,12 +58,20 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
   void _save() {
     final sets = int.tryParse(_setsController.text);
     final reps = int.tryParse(_repsController.text);
+    if (sets == null ||
+        reps == null ||
+        sets < 0 ||
+        sets > widget.prescription.setGoal ||
+        reps < 0) {
+      return;
+    }
     widget.onLogUpdated(ExerciseLogsCompanion(
       id: widget.log != null ? Value(widget.log!.id) : const Value.absent(),
       prescriptionId: Value(widget.prescription.id),
-      completedSets: Value(sets ?? 0),
+      completedSets: Value(sets),
       repsOnLastSet: Value(reps),
-      notes: Value(_notesController.text.isEmpty ? null : _notesController.text),
+      notes:
+          Value(_notesController.text.isEmpty ? null : _notesController.text),
       videoUrl:
           Value(_videoController.text.isEmpty ? null : _videoController.text),
       completedAt: Value(DateTime.now()),
@@ -72,7 +80,7 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final p        = widget.prescription;
+    final p = widget.prescription;
     final isLogged = widget.log?.repsOnLastSet != null;
 
     return Card(
@@ -81,7 +89,6 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             // ── Header (lift name + expand toggle) ────────────────────────────
             if (widget.showHeader) ...[
               Row(
@@ -94,10 +101,9 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
                     const Icon(Icons.check_circle,
                         color: Colors.greenAccent, size: 20),
                   IconButton(
-                    icon: Icon(
-                        _expanded ? Icons.expand_less : Icons.expand_more),
-                    onPressed: () =>
-                        setState(() => _expanded = !_expanded),
+                    icon:
+                        Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+                    onPressed: () => setState(() => _expanded = !_expanded),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -217,9 +223,7 @@ class _StatChip extends StatelessWidget {
       child: Column(
         children: [
           Text(label,
-              style: TextStyle(
-                  fontSize: 10,
-                  color: fg.withValues(alpha: 0.7))),
+              style: TextStyle(fontSize: 10, color: fg.withValues(alpha: 0.7))),
           const SizedBox(height: 2),
           Text(value,
               style: TextStyle(
