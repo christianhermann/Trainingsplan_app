@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/services/notification_service.dart';
 import '../settings/settings_provider.dart';
 
 // ── Timer state ───────────────────────────────────────────────────────────────────
@@ -11,76 +13,116 @@ class RestTimerState {
     required this.totalSeconds,
     required this.remaining,
     required this.isRunning,
+    this.targetEndTime,
   });
-  final int  totalSeconds;
-  final int  remaining;
+  final int totalSeconds;
+  final int remaining;
   final bool isRunning;
+  final DateTime? targetEndTime;
 
-  bool   get isFinished => !isRunning && remaining == 0;
-  double get progress   =>
+  bool get isFinished => !isRunning && remaining == 0;
+  double get progress =>
       totalSeconds == 0 ? 0 : remaining / totalSeconds;
 
   RestTimerState copyWith({
-    int?  totalSeconds,
-    int?  remaining,
+    int? totalSeconds,
+    int? remaining,
     bool? isRunning,
+    DateTime? targetEndTime,
+    bool clearTarget = false,
   }) =>
       RestTimerState(
         totalSeconds: totalSeconds ?? this.totalSeconds,
-        remaining:    remaining    ?? this.remaining,
-        isRunning:    isRunning    ?? this.isRunning,
+        remaining: remaining ?? this.remaining,
+        isRunning: isRunning ?? this.isRunning,
+        targetEndTime: clearTarget ? null : (targetEndTime ?? this.targetEndTime),
       );
 }
 
 // ── Notifier ─────────────────────────────────────────────────────────────────────
 
-class RestTimerNotifier extends Notifier<RestTimerState> {
+class RestTimerNotifier extends Notifier<RestTimerState>
+    with WidgetsBindingObserver {
   static const _defaultSeconds = 180;
   Timer? _timer;
 
   @override
   RestTimerState build() {
+    WidgetsBinding.instance.addObserver(this);
     // React to settings changes: reset duration whenever restTimerSeconds changes.
     ref.listen(settingsProvider, (_, next) {
       next.whenData((s) {
         if (s != null) setDuration(s.restTimerSeconds);
       });
     });
-    ref.onDispose(() => _timer?.cancel());
+    ref.onDispose(() {
+      WidgetsBinding.instance.removeObserver(this);
+      _timer?.cancel();
+    });
     return const RestTimerState(
       totalSeconds: _defaultSeconds,
-      remaining:    _defaultSeconds,
-      isRunning:    false,
+      remaining: _defaultSeconds,
+      isRunning: false,
     );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && this.state.isRunning) {
+      _onTick();
+    }
   }
 
   void start() {
     if (state.isRunning) return;
-    state = state.copyWith(isRunning: true);
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (state.remaining <= 0) {
-        _timer?.cancel();
-        state = state.copyWith(isRunning: false);
-      } else {
-        state = state.copyWith(remaining: state.remaining - 1);
-      }
-    });
+    final target = DateTime.now().add(Duration(seconds: state.remaining));
+    state = state.copyWith(isRunning: true, targetEndTime: target);
+
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
+  }
+
+  void _onTick() {
+    if (!state.isRunning || state.targetEndTime == null) return;
+    final diff = state.targetEndTime!.difference(DateTime.now()).inSeconds;
+    if (diff <= 0) {
+      _timer?.cancel();
+      HapticFeedback.vibrate();
+      NotificationService.showRestFinishedNotification();
+      state = state.copyWith(
+        remaining: 0,
+        isRunning: false,
+        clearTarget: true,
+      );
+    } else {
+      state = state.copyWith(remaining: diff);
+    }
   }
 
   void stop() {
     _timer?.cancel();
-    state = state.copyWith(isRunning: false);
+    NotificationService.cancelRestNotification();
+    state = state.copyWith(isRunning: false, clearTarget: true);
   }
 
   void reset() {
     _timer?.cancel();
-    state = state.copyWith(remaining: state.totalSeconds, isRunning: false);
+    NotificationService.cancelRestNotification();
+    state = state.copyWith(
+      remaining: state.totalSeconds,
+      isRunning: false,
+      clearTarget: true,
+    );
   }
 
   void setDuration(int seconds) {
     _timer?.cancel();
     state = RestTimerState(
-        totalSeconds: seconds, remaining: seconds, isRunning: false);
+      totalSeconds: seconds,
+      remaining: seconds,
+      isRunning: false,
+      targetEndTime: null,
+    );
   }
 }
 

@@ -78,7 +78,19 @@ enum ProgressOutcome {
   plus2,
   plus3,
   plus4,
-  plus5,
+  plus5;
+
+  /// Default percentage delta for training max adjustment.
+  double get defaultDelta => switch (this) {
+        ProgressOutcome.belowBy2 => -0.050,
+        ProgressOutcome.belowBy1 => -0.020,
+        ProgressOutcome.hit      =>  0.000,
+        ProgressOutcome.plus1    =>  0.010,
+        ProgressOutcome.plus2    =>  0.030,
+        ProgressOutcome.plus3    =>  0.050,
+        ProgressOutcome.plus4    =>  0.050,
+        ProgressOutcome.plus5    =>  0.050,
+      };
 }
 
 /// How a working weight is rounded to the nearest plate-friendly value.

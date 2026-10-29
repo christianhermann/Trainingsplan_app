@@ -1,3 +1,4 @@
+import '../../core/widgets/ronnie_loading_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,7 +18,7 @@ class HistoryScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('History')),
       body: historyAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: RonnieLoadingIndicator(message: 'Loading history & progression...')),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (sessions) {
           final days = sessions.map((s) => s.day).toList();

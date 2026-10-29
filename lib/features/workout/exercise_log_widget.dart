@@ -1,39 +1,39 @@
+import 'dart:async';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/persistence/database.dart';
+import 'rest_timer_widget.dart';
 
-class ExerciseLogWidget extends StatefulWidget {
+class ExerciseLogWidget extends ConsumerStatefulWidget {
   const ExerciseLogWidget({
     super.key,
     required this.prescription,
     required this.log,
     required this.liftName,
     required this.onLogUpdated,
-    this.showHeader =
-        true, // fix: add parameter; default true preserves existing callers
+    this.showHeader = true,
   });
 
   final ExercisePrescription prescription;
   final ExerciseLog? log;
   final String liftName;
   final ValueChanged<ExerciseLogsCompanion> onLogUpdated;
-
-  /// When false, the lift-name row and stat-chip row are omitted.
-  /// Use when the parent widget already renders those elements.
   final bool showHeader;
 
   @override
-  State<ExerciseLogWidget> createState() => _ExerciseLogWidgetState();
+  ConsumerState<ExerciseLogWidget> createState() => _ExerciseLogWidgetState();
 }
 
-class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
+class _ExerciseLogWidgetState extends ConsumerState<ExerciseLogWidget> {
   late TextEditingController _setsController;
   late TextEditingController _repsController;
   late TextEditingController _notesController;
   late TextEditingController _videoController;
   bool _expanded = false;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -47,12 +47,60 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
   }
 
   @override
+  void didUpdateWidget(covariant ExerciseLogWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.prescription.id != oldWidget.prescription.id ||
+        widget.log != oldWidget.log) {
+      final setsText = (widget.log != null && widget.log!.completedSets > 0)
+          ? widget.log!.completedSets.toString()
+          : '';
+      _setsController.text = setsText;
+
+      final repsText = widget.log?.repsOnLastSet != null
+          ? widget.log!.repsOnLastSet.toString()
+          : '';
+      _repsController.text = repsText;
+
+      _notesController.text = widget.log?.notes ?? '';
+      _videoController.text = widget.log?.videoUrl ?? '';
+      setState(() {});
+    }
+  }
+
+  @override
   void dispose() {
+    _debounceTimer?.cancel();
     _setsController.dispose();
     _repsController.dispose();
     _notesController.dispose();
     _videoController.dispose();
     super.dispose();
+  }
+
+  void _onFieldChanged() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), _save);
+  }
+
+  void _onSetTapped(int setIndex) {
+    HapticFeedback.mediumImpact();
+    final currentSets = int.tryParse(_setsController.text) ?? 0;
+    final newSets = (currentSets == setIndex) ? setIndex - 1 : setIndex;
+    _setsController.text = newSets > 0 ? newSets.toString() : '';
+
+    // Auto-trigger rest timer when completing a set
+    if (newSets >= setIndex) {
+      ref.read(restTimerProvider.notifier).reset();
+      ref.read(restTimerProvider.notifier).start();
+    }
+
+    // If completing final rep-out set, prefill target if empty
+    if (newSets == widget.prescription.setGoal && _repsController.text.isEmpty) {
+      _repsController.text = widget.prescription.repOutTarget.toString();
+    }
+
+    _save();
+    setState(() {});
   }
 
   void _save() {
@@ -70,10 +118,10 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
       prescriptionId: Value(widget.prescription.id),
       completedSets: Value(sets),
       repsOnLastSet: Value(reps),
-      notes:
-          Value(_notesController.text.isEmpty ? null : _notesController.text),
-      videoUrl:
-          Value(_videoController.text.isEmpty ? null : _videoController.text),
+      notes: Value(
+          _notesController.text.trim().isEmpty ? null : _notesController.text.trim()),
+      videoUrl: Value(
+          _videoController.text.trim().isEmpty ? null : _videoController.text.trim()),
       completedAt: Value(DateTime.now()),
     ));
   }
@@ -82,6 +130,8 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
   Widget build(BuildContext context) {
     final p = widget.prescription;
     final isLogged = widget.log?.repsOnLastSet != null;
+    final currentSets = int.tryParse(_setsController.text) ?? (widget.log?.completedSets ?? 0);
+    final cs = Theme.of(context).colorScheme;
 
     return Card(
       child: Padding(
@@ -130,7 +180,39 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
               const SizedBox(height: 16),
             ],
 
-            // ── Reps input (always shown) ───────────────────────────────────────
+            // ── Interactive Set-by-Set check-off pills ─────────────────────────
+            Row(
+              children: [
+                Text(
+                  'Sets:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      for (int i = 1; i <= p.setGoal; i++)
+                        _SetChip(
+                          setIndex: i,
+                          isLastSet: i == p.setGoal,
+                          isCompleted: currentSets >= i,
+                          onTap: () => _onSetTapped(i),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // ── Reps input ───────────────────────────────────────
             Row(
               children: [
                 Expanded(
@@ -142,7 +224,7 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
                       labelText: 'Sets completed',
                       hintText: '${widget.prescription.setGoal}',
                     ),
-                    onChanged: (_) => _save(),
+                    onChanged: (_) => _onFieldChanged(),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -155,7 +237,7 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
                       labelText: 'Reps on last set',
                       hintText: 'e.g. 8',
                     ),
-                    onChanged: (_) => _save(),
+                    onChanged: (_) => _onFieldChanged(),
                   ),
                 ),
               ],
@@ -171,7 +253,7 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
                   hintText: 'Optional notes',
                 ),
                 maxLines: 2,
-                onChanged: (_) => _save(),
+                onChanged: (_) => _onFieldChanged(),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -181,9 +263,71 @@ class _ExerciseLogWidgetState extends State<ExerciseLogWidget> {
                   hintText: 'https://...',
                 ),
                 keyboardType: TextInputType.url,
-                onChanged: (_) => _save(),
+                onChanged: (_) => _onFieldChanged(),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SetChip extends StatelessWidget {
+  const _SetChip({
+    required this.setIndex,
+    required this.isLastSet,
+    required this.isCompleted,
+    required this.onTap,
+  });
+
+  final int setIndex;
+  final bool isLastSet;
+  final bool isCompleted;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    final bg = isCompleted
+        ? cs.primary
+        : cs.surfaceContainerHighest;
+    final fg = isCompleted
+        ? cs.onPrimary
+        : cs.onSurface;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isCompleted ? cs.primary : cs.outlineVariant,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isCompleted ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+              size: 14,
+              color: fg,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              isLastSet ? 'Set $setIndex (AMRAP)' : 'Set $setIndex',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: fg,
+              ),
+            ),
           ],
         ),
       ),

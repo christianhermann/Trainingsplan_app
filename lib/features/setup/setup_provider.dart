@@ -1,3 +1,6 @@
+import '../workout/workout_provider.dart';
+import '../history/history_provider.dart';
+import '../plan/plan_provider.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -337,6 +340,9 @@ class SetupNotifier extends Notifier<SetupState> {
       });
 
       state = state.copyWith(isSaving: false);
+      ref.invalidate(todayWorkoutProvider);
+      ref.invalidate(historySessionsProvider);
+      ref.invalidate(planSummaryProvider);
     } catch (e) {
       state = state.copyWith(
         isSaving: false,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/repositories/progression_adjustment_repository.dart';
 import '../../data/repositories/training_max_repository.dart';
 import '../../domain/models/enums.dart';
 import '../workout/workout_provider.dart';
@@ -44,9 +43,7 @@ final debugWorkoutProvider =
   if (today == null) return [];
 
   final tmRepo         = ref.watch(trainingMaxRepositoryProvider);
-  final adjustmentRepo = ref.watch(progressionAdjustmentRepositoryProvider);
 
-  final adjustments = await adjustmentRepo.getAdjustments();
 
   final rows = <DebugLiftRow>[];
 
@@ -60,26 +57,7 @@ final debugWorkoutProvider =
     // Raw (pre-rounding) weight
     final rawWeight = tmValue * presc.intensity;
 
-    // Per-outcome deltas for this lift
-    final deltas = <ProgressOutcome, double>{};
-    for (final outcome in ProgressOutcome.values) {
-      // Lift-specific rule first, then 'all_lifts' fallback.
-      final specific = adjustments.where((a) =>
-          a.liftId == liftRow.name &&
-          a.outcome == outcome &&
-          a.appliesToTrainingMax);
-      if (specific.isNotEmpty) {
-        deltas[outcome] = specific.first.delta;
-        continue;
-      }
-      final fallback = adjustments.where((a) =>
-          a.liftId == 'all_lifts' &&
-          a.outcome == outcome &&
-          a.appliesToTrainingMax);
-      if (fallback.isNotEmpty) {
-        deltas[outcome] = fallback.first.delta;
-      }
-    }
+    final deltas = {for (final o in ProgressOutcome.values) o: o.defaultDelta};
 
     rows.add(DebugLiftRow(
       liftName:          liftRow.displayName,
@@ -381,3 +359,5 @@ class _Chip extends StatelessWidget {
     );
   }
 }
+
+

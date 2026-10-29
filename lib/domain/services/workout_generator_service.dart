@@ -15,19 +15,8 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/workout_repository.dart';
 import '../../data/seeders/frequency_template_seeder.dart';
 import '../models/enums.dart';
-import '../models/frequency_template.dart';
 import '../models/training_max.dart';
 import 'workout_generation_service.dart';
-
-// ---------------------------------------------------------------------------
-// Lookup cache — seeder data is immutable, so cache it after first generation.
-// ---------------------------------------------------------------------------
-class LookupCache {
-  List<FrequencyTemplate>? _frequencyTemplates;
-
-  List<FrequencyTemplate> get frequencyTemplates =>
-      _frequencyTemplates ??= FrequencyTemplateSeeder.generateFrequencyTemplates();
-}
 
 /// Orchestrates full 21-week program generation.
 class WorkoutGeneratorService {
@@ -35,7 +24,7 @@ class WorkoutGeneratorService {
 
   final Ref _ref;
   final _generationSvc = WorkoutGenerationService();
-  final _lookupCache = LookupCache();
+  late final _frequencyTemplates = FrequencyTemplateSeeder.generateFrequencyTemplates();
 
   // -- Full-program generation ------------------------------------------------
 
@@ -106,7 +95,7 @@ class WorkoutGeneratorService {
     final roundingIncrement = settings?.roundingIncrement ?? 2.5;
     final roundingMode      = RoundingMode.fromString(settings?.roundingMode);
 
-    final freqTemplates = _lookupCache.frequencyTemplates
+    final freqTemplates = _frequencyTemplates
         .where((t) => t.frequency == frequency)
         .toList();
 
@@ -132,14 +121,27 @@ class WorkoutGeneratorService {
     };
 
     for (final week in weeks) {
+      final existingDays = await programRepo.getDaysForWeek(week.id);
       for (final dayIndex in dayIndices) {
-        final dayDbId = await programRepo.saveDay(
-          WorkoutDaysCompanion.insert(
-            workoutWeekId: week.id,
-            dayIndex:      dayIndex,
-            title: Value('Week ${week.weekNumber} - Day ${dayIndex + 1}'),
-          ),
-        );
+        final existingDay = existingDays
+            .where((d) => d.dayIndex == dayIndex)
+            .firstOrNull;
+
+        if (existingDay != null &&
+            WorkoutStatus.fromString(existingDay.status) ==
+                WorkoutStatus.completed) {
+          // Never overwrite or duplicate a completed day
+          continue;
+        }
+
+        final dayDbId = existingDay?.id ??
+            await programRepo.saveDay(
+              WorkoutDaysCompanion.insert(
+                workoutWeekId: week.id,
+                dayIndex:      dayIndex,
+                title: Value('Week ${week.weekNumber} - Day ${dayIndex + 1}'),
+              ),
+            );
 
         final prescriptions = _generationSvc.generateDayPrescriptions(
           workoutDayId:       dayDbId.toString(),

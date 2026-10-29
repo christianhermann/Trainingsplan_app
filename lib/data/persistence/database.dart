@@ -27,7 +27,8 @@ class Lifts extends Table {
 
 class TrainingMaxes extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get liftId => integer().references(Lifts, #id)();
+  IntColumn get liftId =>
+      integer().references(Lifts, #id, onDelete: KeyAction.cascade)();
   RealColumn get value => real()();
   RealColumn get singleEightPercentage =>
       real().withDefault(const Constant(0.9))();
@@ -50,7 +51,8 @@ class Programs extends Table {
 
 class WorkoutWeeks extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get programId => integer().references(Programs, #id)();
+  IntColumn get programId =>
+      integer().references(Programs, #id, onDelete: KeyAction.cascade)();
   IntColumn get weekNumber => integer()();
   TextColumn get displayLabel =>
       text().withDefault(const Constant(''))();
@@ -61,7 +63,7 @@ class WorkoutWeeks extends Table {
 class WorkoutDays extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get workoutWeekId =>
-      integer().references(WorkoutWeeks, #id)();
+      integer().references(WorkoutWeeks, #id, onDelete: KeyAction.cascade)();
   IntColumn get dayIndex => integer()();
   TextColumn get title => text().withDefault(const Constant(''))();
   TextColumn get status =>
@@ -72,8 +74,9 @@ class WorkoutDays extends Table {
 class ExercisePrescriptions extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get workoutDayId =>
-      integer().references(WorkoutDays, #id)();
-  IntColumn get liftId => integer().references(Lifts, #id)();
+      integer().references(WorkoutDays, #id, onDelete: KeyAction.cascade)();
+  IntColumn get liftId =>
+      integer().references(Lifts, #id, onDelete: KeyAction.cascade)();
   RealColumn get trainingMaxSnapshot => real()();
   RealColumn get intensity => real()();
   RealColumn get workingWeight => real()();
@@ -89,7 +92,7 @@ class ExercisePrescriptions extends Table {
 class ExerciseLogs extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get prescriptionId =>
-      integer().references(ExercisePrescriptions, #id)();
+      integer().references(ExercisePrescriptions, #id, onDelete: KeyAction.cascade)();
   IntColumn get completedSets =>
       integer().withDefault(const Constant(0))();
   IntColumn get repsOnLastSet => integer().nullable()();
@@ -162,12 +165,16 @@ class ProgressAdjustments extends Table {
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
+  AppDatabase.forTesting(super.e);
 
   @override
   int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+        beforeOpen: (details) async {
+          await customStatement('PRAGMA foreign_keys = ON;');
+        },
         onCreate: (m) async {
           await m.createAll();
           await _seedLifts();

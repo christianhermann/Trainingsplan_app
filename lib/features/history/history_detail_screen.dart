@@ -57,6 +57,22 @@ class _SessionDetail extends StatelessWidget {
           label: 'Exercises',
           value: '${session.loggedCount}/${session.totalCount} logged',
         ),
+        if (session.totalVolumeKg > 0) ...[
+          _InfoRow(
+            label: 'Total Volume',
+            value: '${session.totalVolumeKg.toStringAsFixed(0)} kg',
+          ),
+          if (session.durationMinutes > 0)
+            _InfoRow(
+              label: 'Duration',
+              value: '${session.durationMinutes} min',
+            ),
+          if (session.densityKgPerMinute > 0)
+            _InfoRow(
+              label: 'Volume Density',
+              value: '${session.densityKgPerMinute.toStringAsFixed(0)} kg/min',
+            ),
+        ],
         const SizedBox(height: 20),
         ...session.prescriptions.map((p) {
           final log     = session.logs[p.id];

@@ -2,16 +2,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/lift_repository.dart';
 import '../../data/repositories/program_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/workout_repository.dart';
+import '../../domain/models/enums.dart';
+import '../../domain/services/workout_duration_service.dart';
 
 class PlanDaySummary {
   const PlanDaySummary({
     required this.dayNumber,
     required this.exercises,
+    this.isCompleted = false,
+    this.estimatedDurationMinutes = 0,
   });
 
   final int dayNumber;
   final List<PlanExerciseSummary> exercises;
+  final bool isCompleted;
+  final int estimatedDurationMinutes;
 }
 
 class PlanExerciseSummary {
@@ -44,11 +51,15 @@ class PlanSummary {
 
 final planSummaryProvider =
     FutureProvider.family<PlanSummary?, int>((ref, selectedWeek) async {
-  final program = await ref.read(programRepositoryProvider).getActiveProgram();
+  final programRepo = ref.watch(programRepositoryProvider);
+  final program = await programRepo.getActiveProgram();
   if (program == null) return null;
-
-  final programRepo = ref.read(programRepositoryProvider);
   final workoutRepo = ref.read(workoutRepositoryProvider);
+  final settingsRepo = ref.read(settingsRepositoryProvider);
+  final settings = await settingsRepo.getSettings();
+  final defaultRestSeconds = settings?.restTimerSeconds ?? 180;
+  const durationSvc = WorkoutDurationService();
+
   final lifts = {
     for (final lift in await ref.read(allLiftsProvider.future)) lift.id: lift,
   };
@@ -64,8 +75,19 @@ final planSummaryProvider =
 
   for (final day in days) {
     final prescriptions = await workoutRepo.getPrescriptionsForDay(day.id);
+    final isCompleted =
+        WorkoutStatus.fromString(day.status) == WorkoutStatus.completed ||
+        day.completedAt != null;
+    final durationMinutes = durationSvc.estimateDurationMinutes(
+      prescriptions: prescriptions,
+      lifts: lifts,
+      defaultRestSeconds: defaultRestSeconds,
+    );
+
     summaries.add(PlanDaySummary(
       dayNumber: day.dayIndex + 1,
+      isCompleted: isCompleted,
+      estimatedDurationMinutes: durationMinutes,
       exercises: [
         for (final prescription in prescriptions)
           PlanExerciseSummary(

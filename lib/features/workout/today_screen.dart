@@ -1,3 +1,4 @@
+import '../../core/widgets/ronnie_loading_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../data/persistence/database.dart';
 import 'exercise_log_widget.dart';
 import 'rest_timer_widget.dart';
+import 'plate_calculator_widget.dart';
 import 'workout_provider.dart';
 
 // ── Screen ──────────────────────────────────────────────────────────────────────
@@ -37,10 +39,124 @@ class TodayScreen extends ConsumerWidget {
             tooltip: 'Edit Training Maxes',
             onPressed: () => context.push('/edit-training-maxes'),
           ),
+          PopupMenuButton<String>(
+            tooltip: 'Session options',
+            icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (value) async {
+              switch (value) {
+                case 'repeat_week':
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (dCtx) => AlertDialog(
+                      title: const Text('Repeat this week?'),
+                      content: const Text(
+                        'This will reset all days in the current week to planned and clear their exercise logs.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dCtx, false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(dCtx, true),
+                          child: const Text('Repeat Week'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && context.mounted) {
+                    await ref.read(todayWorkoutProvider.notifier).repeatWeek();
+                  }
+                  break;
+                case 'skip_day':
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (dCtx) => AlertDialog(
+                      title: const Text("Skip today's workout?"),
+                      content: const Text(
+                        'This will mark today as skipped and advance to the next scheduled day.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dCtx, false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(dCtx, true),
+                          child: const Text('Skip Workout'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && context.mounted) {
+                    await ref.read(todayWorkoutProvider.notifier).skipDay();
+                  }
+                  break;
+                case 'deload_week':
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (dCtx) => AlertDialog(
+                      title: const Text('Apply Deload Mode?'),
+                      content: const Text(
+                        'This will reduce working weights to ~70% and volume to 2-3 sets with no AMRAP for all remaining days this week.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dCtx, false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(dCtx, true),
+                          child: const Text('Apply Deload'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && context.mounted) {
+                    await ref
+                        .read(todayWorkoutProvider.notifier)
+                        .applyDeloadToCurrentWeek();
+                  }
+                  break;
+              }
+            },
+            itemBuilder: (ctx) => const [
+              PopupMenuItem(
+                value: 'repeat_week',
+                child: Row(
+                  children: [
+                    Icon(Icons.replay_rounded, size: 20),
+                    SizedBox(width: 12),
+                    Text('Repeat Current Week'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'skip_day',
+                child: Row(
+                  children: [
+                    Icon(Icons.skip_next_rounded, size: 20),
+                    SizedBox(width: 12),
+                    Text("Skip Today's Workout"),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'deload_week',
+                child: Row(
+                  children: [
+                    Icon(Icons.battery_charging_full_rounded, size: 20),
+                    SizedBox(width: 12),
+                    Text('Apply Deload to Week'),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       body: workoutAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: RonnieLoadingIndicator(message: 'Loading today\'s workout...')),
         error:   (e, _) => _ErrorView(message: e.toString()),
         data: (state) {
           if (state == null) return const _NoActiveProgram();
@@ -157,9 +273,61 @@ class _WorkoutBody extends StatelessWidget {
       for (final p in auxiliary) _CardItem(p),
     ];
 
+    double totalTonnage = 0.0;
+    int totalSetsDone = 0;
+    final logTimes = <DateTime>[];
+
+    for (final p in state.prescriptions) {
+      final l = state.logs[p.id];
+      if (l != null && l.completedSets > 0) {
+        final normalSets = (l.completedSets - 1).clamp(0, 999);
+        final normalReps = normalSets * p.repsPerNormalSet;
+        final lastReps = l.repsOnLastSet ?? p.repsPerNormalSet;
+        totalTonnage += (normalReps + lastReps) * p.workingWeight;
+        totalSetsDone += l.completedSets;
+        logTimes.add(l.completedAt);
+      }
+    }
+
+    int durationMin = 0;
+    if (logTimes.isNotEmpty) {
+      logTimes.sort();
+      final diff = DateTime.now().difference(logTimes.first).inMinutes;
+      durationMin = (diff >= 5 && diff <= 180)
+          ? diff
+          : (totalSetsDone * 3.5).round().clamp(10, 120);
+    }
+
     return Column(
       children: [
-        if (state.isCompleted) const _CompletedBanner(),
+        if (state.isCompleted)
+          _CompletedBanner(
+            totalTonnage: totalTonnage,
+            durationMinutes: durationMin,
+          )
+        else if (totalSetsDone > 0)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Theme.of(context)
+                .colorScheme
+                .surfaceContainerHighest
+                .withValues(alpha: 0.5),
+            child: Row(
+              children: [
+                Icon(Icons.bolt_rounded,
+                    size: 16, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 6),
+                Text(
+                  'Sets done: $totalSetsDone · Volume: ${totalTonnage.toStringAsFixed(0)} kg',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
@@ -170,6 +338,7 @@ class _WorkoutBody extends StatelessWidget {
               return switch (item) {
                 _SectionHeaderItem() => _SectionHeader(label: item.label),
                 _CardItem()         => _ExerciseCard(
+                    key:          ValueKey('card_${item.prescription.id}'),
                     prescription: item.prescription,
                     log:          state.logs[item.prescription.id],
                     liftName:     state.lifts[item.prescription.liftId]
@@ -231,6 +400,7 @@ class _SectionHeader extends StatelessWidget {
 
 class _ExerciseCard extends ConsumerWidget {
   const _ExerciseCard({
+    super.key,
     required this.prescription,
     required this.log,
     required this.liftName,
@@ -280,18 +450,40 @@ class _ExerciseCard extends ConsumerWidget {
 
               const SizedBox(height: 12),
 
-              // Working weight
+              // Working weight (tap to open Plate Calculator & Warmup Ramp)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    p.workingWeight % 1 == 0
-                        ? '${p.workingWeight.toInt()} kg'
-                        : '${p.workingWeight.toStringAsFixed(1)} kg',
-                    style: tt.displaySmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: cs.primary,
-                      height: 1,
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => PlateCalculatorSheet.show(
+                      context,
+                      targetWeight: p.workingWeight,
+                      liftName: _formatLiftName(liftName),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            p.workingWeight % 1 == 0
+                                ? '${p.workingWeight.toInt()} kg'
+                                : '${p.workingWeight.toStringAsFixed(1)} kg',
+                            style: tt.displaySmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: cs.primary,
+                              height: 1,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.calculate_outlined,
+                            size: 22,
+                            color: cs.primary.withValues(alpha: 0.8),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -320,6 +512,7 @@ class _ExerciseCard extends ConsumerWidget {
 
               // Logging form
               ExerciseLogWidget(
+                key:          ValueKey('log_${p.id}'),
                 prescription: p,
                 log:          log,
                 liftName:     liftName,
@@ -416,27 +609,91 @@ class _CompleteWorkoutFab extends StatelessWidget {
 // ── Completed banner ─────────────────────────────────────────────────────────────────────────
 
 class _CompletedBanner extends StatelessWidget {
-  const _CompletedBanner();
+  const _CompletedBanner({this.totalTonnage, this.durationMinutes});
+  final double? totalTonnage;
+  final int? durationMinutes;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final density = (durationMinutes != null &&
+            durationMinutes! > 0 &&
+            totalTonnage != null)
+        ? (totalTonnage! / durationMinutes!).round()
+        : null;
+
     return Container(
-      width:   double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-      color:   cs.primaryContainer.withValues(alpha: 0.6),
-      child: Row(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      color: cs.primaryContainer.withValues(alpha: 0.6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.check_circle_rounded, color: cs.primary, size: 18),
-          const SizedBox(width: 8),
-          Text(
-            'Workout completed — great work!',
-            style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: cs.onPrimaryContainer),
+          Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: cs.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Workout completed — great work!',
+                style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: cs.onPrimaryContainer),
+              ),
+            ],
           ),
+          if (totalTonnage != null && totalTonnage! > 0) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 14,
+              runSpacing: 4,
+              children: [
+                _BannerMetric(
+                  icon: Icons.fitness_center_rounded,
+                  label: '${totalTonnage!.toStringAsFixed(0)} kg volume',
+                ),
+                if (durationMinutes != null && durationMinutes! > 0)
+                  _BannerMetric(
+                    icon: Icons.timer_outlined,
+                    label: '$durationMinutes min duration',
+                  ),
+                if (density != null && density > 0)
+                  _BannerMetric(
+                    icon: Icons.speed_rounded,
+                    label: '$density kg/min density',
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _BannerMetric extends StatelessWidget {
+  const _BannerMetric({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon,
+            size: 14,
+            color: cs.onPrimaryContainer.withValues(alpha: 0.8)),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: cs.onPrimaryContainer,
+          ),
+        ),
+      ],
     );
   }
 }

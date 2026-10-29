@@ -4,13 +4,9 @@ import '../../data/persistence/database.dart';
 import '../../data/repositories/lift_repository.dart';
 import '../../data/repositories/program_repository.dart';
 import '../../data/repositories/workout_repository.dart';
-import '../../data/seeders/progression_adjustment_seeder.dart';
 import '../../domain/models/enums.dart';
+import '../../domain/models/progress_adjustment.dart' as domain;
 import '../../domain/services/progression_service.dart';
-
-// Cached seeder data - generated once per app run.
-final _adjustments =
-    ProgressionAdjustmentSeeder.generateProgressionAdjustments();
 
 const _progressionSvc = ProgressionService();
 
@@ -25,141 +21,173 @@ class HistorySession {
     required this.prescriptions,
     required this.logs,
     required this.lifts,
+    this.adjustments = const [],
   });
 
-  final WorkoutDay                 day;
-  final WorkoutWeek                week;
+  final WorkoutDay day;
+  final WorkoutWeek week;
   final List<ExercisePrescription> prescriptions;
-  final Map<int, ExerciseLog>      logs;   // prescriptionId -> log
-  final Map<int, Lift>             lifts;  // liftId -> lift
+  final Map<int, ExerciseLog> logs; // prescriptionId -> log
+  final Map<int, Lift> lifts; // liftId -> lift
+  final List<domain.ProgressAdjustment> adjustments;
 
   DateTime? get completedAt => day.completedAt;
-  String    get title       => 'Week ${week.weekNumber} - Day ${day.dayIndex + 1}';
-  int       get loggedCount => logs.length;
-  int       get totalCount  => prescriptions.length;
+  String get title => 'Week ${week.weekNumber} - Day ${day.dayIndex + 1}';
+  int get loggedCount => logs.length;
+  int get totalCount => prescriptions.length;
 
-  // -- Progression helpers --------------------------------------------------
+  /// Total volume moved during the workout in kg (tonnage).
+  double get totalVolumeKg {
+    double total = 0.0;
+    for (final p in prescriptions) {
+      final log = logs[p.id];
+      if (log == null || log.completedSets <= 0) continue;
+      final normalSets = (log.completedSets - 1).clamp(0, 999);
+      final normalReps = normalSets * p.repsPerNormalSet;
+      final lastReps = log.repsOnLastSet ?? p.repsPerNormalSet;
+      total += (normalReps + lastReps) * p.workingWeight;
+    }
+    return total;
+  }
+
+  /// Estimated duration in minutes based on timestamps or completed sets.
+  int get durationMinutes {
+    final logTimes = logs.values.map((l) => l.completedAt).toList();
+    if (logTimes.isEmpty) return 0;
+    logTimes.sort();
+    final first = logTimes.first;
+    final last = day.completedAt ?? logTimes.last;
+    final diff = last.difference(first).inMinutes;
+    if (diff > 0) return diff;
+
+    // Fallback: estimate 3 minutes per completed set
+    final totalSets = logs.values.fold<int>(0, (sum, l) => sum + l.completedSets);
+    return totalSets * 3;
+  }
+
+  /// Density in kg/min (tonnage moved per minute of session duration).
+  double get densityKgPerMin {
+    final mins = durationMinutes;
+    if (mins <= 0) return 0.0;
+    return totalVolumeKg / mins;
+  }
+
+  double get densityKgPerMinute => densityKgPerMin;
 
   ExercisePrescription _prescFor(int prescriptionId) =>
-      prescriptions.firstWhere(
-        (p) => p.id == prescriptionId,
-        orElse: () =>
-            throw StateError('Prescription $prescriptionId not in session'),
-      );
+      prescriptions.firstWhere((p) => p.id == prescriptionId);
 
-  /// [ProgressOutcome] for a prescription, or null if no reps recorded.
+  ExerciseLog? logFor(int prescriptionId) => logs[prescriptionId];
+
+  /// Outcome for a prescription, or null if repsOnLastSet was not logged.
   ProgressOutcome? outcomeFor(int prescriptionId) {
+    final presc = _prescFor(prescriptionId);
     final log = logs[prescriptionId];
-    if (log == null) return null;
+    if (log == null || log.repsOnLastSet == null) return null;
     return _progressionSvc.determineOutcome(
       completedSets: log.completedSets,
-      setGoal:       _prescFor(prescriptionId).setGoal,
+      setGoal: presc.setGoal,
       repsOnLastSet: log.repsOnLastSet ?? 0,
-      repOutTarget:  _prescFor(prescriptionId).repOutTarget,
+      repOutTarget: presc.repOutTarget,
     );
   }
 
   /// TM delta fraction (e.g. 0.01 = +1.0%) for a prescription, or null.
   double? deltaFor(int prescriptionId) {
     final outcome = outcomeFor(prescriptionId);
-    if (outcome == null) return null;
-    final liftName = lifts[_prescFor(prescriptionId).liftId]?.name;
-
-    // Lift-specific match first, then global fallback.
-    return _adjustments
-            .where((a) =>
-                a.liftId == liftName &&
-                a.outcome == outcome &&
-                a.appliesToTrainingMax)
-            .firstOrNull
-            ?.delta ??
-        _adjustments
-            .where((a) =>
-                a.liftId == 'all_lifts' &&
-                a.outcome == outcome &&
-                a.appliesToTrainingMax)
-            .firstOrNull
-            ?.delta;
+    return outcome?.defaultDelta;
   }
 }
 
 // ---------------------------------------------------------------------------
-// List provider
+// List provider - Optimized batch fetch (5 bulk queries instead of 200+ loops)
 // ---------------------------------------------------------------------------
 
 final historySessionsProvider =
     FutureProvider<List<HistorySession>>((ref) async {
   final programRepo = ref.watch(programRepositoryProvider);
   final workoutRepo = ref.watch(workoutRepositoryProvider);
-  final liftRepo    = ref.watch(liftRepositoryProvider);
+  final liftRepo = ref.watch(liftRepositoryProvider);
 
-  final liftMap  = {for (final l in await liftRepo.getAllLifts()) l.id: l};
-  final programs = await programRepo.getAllPrograms();
-  final sessions = <HistorySession>[];
+  final completedDays = await programRepo.getCompletedDays();
+  if (completedDays.isEmpty) return [];
 
-  for (final program in programs) {
-    for (final week in await programRepo.getWeeksForProgram(program.id)) {
-      for (final day in await programRepo.getDaysForWeek(week.id)) {
-        if (WorkoutStatus.fromString(day.status) != WorkoutStatus.completed) {
-          continue;
-        }
-        final prescriptions =
-            await workoutRepo.getPrescriptionsForDay(day.id);
-        final logs = await workoutRepo.getLogsForDay(day.id);
-        sessions.add(HistorySession(
-          day:           day,
-          week:          week,
-          prescriptions: prescriptions,
-          logs:          {for (final l in logs) l.prescriptionId: l},
-          lifts:         liftMap,
-        ));
-      }
-    }
+  // Bulk query 1: Fetch all unique weeks in one batch
+  final weekIds = completedDays.map((d) => d.workoutWeekId).toSet().toList();
+  final weekMap = await programRepo.getWeeksMap(weekIds);
+
+  // Bulk query 2: Fetch all prescriptions for all completed days in one batch
+  final dayIds = completedDays.map((d) => d.id).toList();
+  final allPrescriptions = await workoutRepo.getPrescriptionsForDays(dayIds);
+
+  // Group prescriptions by dayId
+  final prescriptionsByDay = <int, List<ExercisePrescription>>{};
+  final prescriptionIds = <int>[];
+  for (final p in allPrescriptions) {
+    (prescriptionsByDay[p.workoutDayId] ??= []).add(p);
+    prescriptionIds.add(p.id);
   }
 
-  // Most-recent first; null completedAt sorts to the end.
-  sessions.sort((a, b) {
-    final aDate = a.completedAt;
-    final bDate = b.completedAt;
-    if (aDate == null && bDate == null) return 0;
-    if (aDate == null) return  1;
-    if (bDate == null) return -1;
-    return bDate.compareTo(aDate);
-  });
+  // Bulk query 3: Fetch all logs for all prescriptions in one batch
+  final allLogs = await workoutRepo.getLogsForPrescriptions(prescriptionIds);
+  final logsByPrescription = {for (final l in allLogs) l.prescriptionId: l};
+
+  // Bulk query 4: Cache all lifts
+  final liftMap = {for (final l in await liftRepo.getAllLifts()) l.id: l};
+
+  // Assemble sessions in memory with zero extra queries
+  final sessions = <HistorySession>[];
+  for (final day in completedDays) {
+    final week = weekMap[day.workoutWeekId];
+    if (week == null) continue;
+
+    final dayPrescriptions = prescriptionsByDay[day.id] ?? [];
+    sessions.add(HistorySession(
+      day: day,
+      week: week,
+      prescriptions: dayPrescriptions,
+      logs: {
+        for (final p in dayPrescriptions)
+          if (logsByPrescription.containsKey(p.id))
+            p.id: logsByPrescription[p.id]!,
+      },
+      lifts: liftMap,
+    ));
+  }
 
   return sessions;
 });
 
 // ---------------------------------------------------------------------------
-// Detail provider - O(1) direct repo lookup, not a list scan
+// Detail provider - O(1) direct repo lookup
 // ---------------------------------------------------------------------------
 
 final historySessionDetailProvider =
     FutureProvider.family<HistorySession?, int>((ref, dayId) async {
   final programRepo = ref.watch(programRepositoryProvider);
   final workoutRepo = ref.watch(workoutRepositoryProvider);
-  final liftRepo    = ref.watch(liftRepositoryProvider);
+  final liftRepo = ref.watch(liftRepositoryProvider);
 
   // Fetch the specific day directly.
-  final days = await programRepo.getDayById(dayId);
-  if (days == null) return null;
-  if (WorkoutStatus.fromString(days.status) != WorkoutStatus.completed) {
+  final day = await programRepo.getDayById(dayId);
+  if (day == null) return null;
+  if (WorkoutStatus.fromString(day.status) != WorkoutStatus.completed) {
     return null;
   }
 
   // Fetch the parent week to get weekNumber.
-  final week = await programRepo.getWeekById(days.workoutWeekId);
+  final week = await programRepo.getWeekById(day.workoutWeekId);
   if (week == null) return null;
 
   final prescriptions = await workoutRepo.getPrescriptionsForDay(dayId);
-  final logs          = await workoutRepo.getLogsForDay(dayId);
-  final liftMap       = {for (final l in await liftRepo.getAllLifts()) l.id: l};
+  final logs = await workoutRepo.getLogsForDay(dayId);
+  final liftMap = {for (final l in await liftRepo.getAllLifts()) l.id: l};
 
   return HistorySession(
-    day:           days,
-    week:          week,
+    day: day,
+    week: week,
     prescriptions: prescriptions,
-    logs:          {for (final l in logs) l.prescriptionId: l},
-    lifts:         liftMap,
+    logs: {for (final l in logs) l.prescriptionId: l},
+    lifts: liftMap,
   );
 });

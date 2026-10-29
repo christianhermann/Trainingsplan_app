@@ -9,6 +9,10 @@ class LiftRepository {
 
   Future<List<Lift>> getAllLifts() => _db.select(_db.lifts).get();
 
+  Future<Lift?> getLiftById(int id) =>
+      (_db.select(_db.lifts)..where((l) => l.id.equals(id)))
+          .getSingleOrNull();
+
   Future<Lift?> getLiftByName(String name) =>
       (_db.select(_db.lifts)..where((l) => l.name.equals(name)))
           .getSingleOrNull();
@@ -40,7 +44,5 @@ final allLiftsProvider = FutureProvider<List<Lift>>((ref) {
 });
 
 final liftByIdProvider = FutureProvider.family<Lift?, int>((ref, id) async {
-  final repo = ref.watch(liftRepositoryProvider);
-  final lifts = await repo.getAllLifts();
-  return lifts.where((l) => l.id == id).firstOrNull;
+  return ref.watch(liftRepositoryProvider).getLiftById(id);
 });

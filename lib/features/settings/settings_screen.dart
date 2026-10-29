@@ -43,13 +43,13 @@ class _SettingsList extends ConsumerStatefulWidget {
 class _SettingsListState extends ConsumerState<_SettingsList> {
   int _versionTapCount = 0;
   bool _exporting = false;
+  bool _exportingCsv = false;
   bool _importing = false;
 
   AppSettings get s => widget.settings;
 
   @override
   Widget build(BuildContext context) {
-    final notifier = ref.read(settingsProvider.notifier);
     final mode = RoundingMode.fromString(s.roundingMode);
 
     return ListView(
@@ -100,23 +100,6 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
 
         const SizedBox(height: 16),
 
-        // ── Workout display ──────────────────────────────────────────────
-        const _SectionHeader('Workout Display'),
-
-        SwitchListTile(
-          title: const Text('Show notes field'),
-          value: s.showNotesField,
-          onChanged: (_) => notifier.toggleNotesField(),
-        ),
-
-        SwitchListTile(
-          title: const Text('Show video field'),
-          value: s.showVideoField,
-          onChanged: (_) => notifier.toggleVideoField(),
-        ),
-
-        const SizedBox(height: 16),
-
         // ── Import / Export ──────────────────────────────────────────────
         const _SectionHeader('Import / Export'),
         const SizedBox(height: 4),
@@ -128,8 +111,23 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.upload_rounded),
-          label: Text(_exporting ? 'Exporting…' : 'Export Training Data'),
+          label: Text(_exporting ? 'Exporting…' : 'Backup JSON (Full Data)'),
           onPressed: _exporting ? null : () => _doExport(context),
+        ),
+
+        const SizedBox(height: 8),
+
+        OutlinedButton.icon(
+          icon: _exportingCsv
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.table_chart_rounded),
+          label: Text(_exportingCsv
+              ? 'Exporting CSV…'
+              : 'Export Training History (CSV / Excel)'),
+          onPressed: _exportingCsv ? null : () => _doExportCsv(context),
         ),
 
         const SizedBox(height: 8),
@@ -210,6 +208,21 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
       }
     } finally {
       if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  Future<void> _doExportCsv(BuildContext context) async {
+    setState(() => _exportingCsv = true);
+    try {
+      await ref.read(backupServiceProvider).exportToCsv();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('CSV Export failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _exportingCsv = false);
     }
   }
 
@@ -295,19 +308,19 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
   void _confirmReset(BuildContext context) {
     showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Reset all data?'),
         content:
             const Text('This will delete all programs, workouts, and logs.\n'
                 'Settings are kept. This cannot be undone.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               try {
                 await ref.read(settingsProvider.notifier).resetAllData();
                 if (context.mounted) {
@@ -342,7 +355,7 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
   }) {
     showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text(title),
         contentPadding: const EdgeInsets.symmetric(vertical: 8),
         content: RadioGroup<T>(
@@ -350,7 +363,7 @@ class _SettingsListState extends ConsumerState<_SettingsList> {
           onChanged: (v) {
             if (v != null) {
               onSelected(v);
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
             }
           },
           child: Column(

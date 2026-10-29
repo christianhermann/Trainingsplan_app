@@ -2,46 +2,42 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class NavShell extends StatelessWidget {
-  const NavShell({super.key, required this.child});
-  final Widget child;
-
-  static const _tabs = [
-    _TabItem(label: 'Today', icon: Icons.fitness_center, path: '/today'),
-    _TabItem(label: 'Plan', icon: Icons.view_list, path: '/plan'),
-    _TabItem(label: 'History', icon: Icons.history, path: '/history'),
-    _TabItem(label: 'Setup', icon: Icons.tune, path: '/setup'),
-    _TabItem(label: 'Settings', icon: Icons.settings, path: '/settings'),
-  ];
+  const NavShell({super.key, required this.navigationShell});
+  final StatefulNavigationShell navigationShell;
 
   @override
   Widget build(BuildContext context) {
-    final location = GoRouterState.of(context).uri.toString();
-    final currentIndex = _tabs.indexWhere((t) => location.startsWith(t.path));
-    final safeIndex = currentIndex < 0 ? 0 : currentIndex;
-
     return Scaffold(
-      body: child,
+      body: navigationShell,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: safeIndex,
-        onDestinationSelected: (i) => context.go(_tabs[i].path),
-        destinations: _tabs
-            .map((t) => NavigationDestination(
-                  icon: Icon(t.icon),
-                  label: t.label,
-                ))
-            .toList(),
+        selectedIndex: navigationShell.currentIndex,
+        onDestinationSelected: (i) => navigationShell.goBranch(
+          i,
+          initialLocation: i == navigationShell.currentIndex,
+        ),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.fitness_center),
+            label: 'Today',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.view_list),
+            label: 'Plan',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history),
+            label: 'History',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.tune),
+            label: 'Setup',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
+        ],
       ),
     );
   }
-}
-
-class _TabItem {
-  const _TabItem({
-    required this.label,
-    required this.icon,
-    required this.path,
-  });
-  final String label;
-  final IconData icon;
-  final String path;
 }

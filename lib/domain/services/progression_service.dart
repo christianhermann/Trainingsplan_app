@@ -29,28 +29,6 @@ class ProgressionResult {
 /// and [ExerciseLog.repsOnLastSet] against [ExercisePrescription.repOutTarget],
 /// maps the result to a [ProgressOutcome], looks up the matching
 /// [ProgressAdjustment] delta, and returns a [ProgressionResult].
-///
-/// Outcome mapping (workbook):
-///
-/// 1. Set-failure branch (checked first):
-///    completedSets < setGoal - 1  -> belowBy2  (2+ sets missed)
-///    completedSets == setGoal - 1 -> belowBy1  (1 set missed)
-///
-/// 2. RIR branch (all sets completed):
-///    diff = repsOnLastSet - repOutTarget
-///    diff <= -2  -> belowBy2
-///    diff = -1   -> belowBy1
-///    diff =  0   -> hit
-///    diff = +1   -> plus1
-///    diff = +2   -> plus2
-///    diff = +3   -> plus3
-///    diff = +4   -> plus4
-///    diff >= +5  -> plus5
-///
-/// Adjustment lookup order:
-///   1. Exact match on liftId + outcome (appliesToTrainingMax = true).
-///   2. Fallback key 'all_lifts' + outcome.
-///   3. Throws [ArgumentError] if neither found.
 class ProgressionService {
   const ProgressionService();
 
@@ -58,7 +36,7 @@ class ProgressionService {
   ProgressionResult evaluate({
     required ExerciseLog log,
     required ExercisePrescription prescription,
-    required List<ProgressAdjustment> adjustments,
+    List<ProgressAdjustment>? adjustments,
     required double currentTrainingMax,
   }) {
     final outcome = _mapOutcome(
@@ -67,11 +45,13 @@ class ProgressionService {
       repsOnLastSet: log.repsOnLastSet ?? 0,
       repOutTarget: prescription.repOutTarget,
     );
-    final delta = _lookupDelta(
-      liftId: prescription.liftId,
-      outcome: outcome,
-      adjustments: adjustments,
-    );
+    final delta = adjustments != null
+        ? _lookupDelta(
+            liftId: prescription.liftId,
+            outcome: outcome,
+            adjustments: adjustments,
+          )
+        : outcome.defaultDelta;
     return ProgressionResult(
       outcome: outcome,
       newTrainingMax: currentTrainingMax + (currentTrainingMax * delta),

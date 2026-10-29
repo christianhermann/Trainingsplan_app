@@ -1,3 +1,6 @@
+import '../../core/widgets/ronnie_loading_indicator.dart';
+import '../plan/plan_provider.dart';
+import '../workout/workout_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,13 +25,24 @@ class SetupScreen extends ConsumerWidget {
         title: const Text('Setup'),
         actions: [
           IconButton(
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.go('/settings'),
+          ),
+          IconButton(
             tooltip: 'Plan',
             icon: const Icon(Icons.view_list),
             onPressed: () => context.go('/plan'),
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: s.isSaving
+          ? const Center(
+              child: RonnieLoadingIndicator(
+                message: 'Generating your 21-week periodized program...',
+              ),
+            )
+          : SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -118,6 +132,8 @@ class SetupScreen extends ConsumerWidget {
                               if (context.mounted &&
                                   ref.read(setupProvider).errorMessage ==
                                       null) {
+                                ref.invalidate(planSummaryProvider);
+                                ref.invalidate(todayWorkoutProvider);
                                 context.go('/today');
                               }
                             }
@@ -775,6 +791,15 @@ class _AuxMaxRowState extends State<_AuxMaxRow> {
     _ctrl = TextEditingController(
       text: widget.currentAuxMax != null ? widget.currentAuxMax.toString() : '',
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant _AuxMaxRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final valText = widget.currentAuxMax != null ? widget.currentAuxMax.toString() : '';
+    if (_ctrl.text != valText && !FocusScope.of(context).hasFocus) {
+      _ctrl.text = valText;
+    }
   }
 
   @override

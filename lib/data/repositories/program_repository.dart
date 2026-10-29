@@ -65,6 +65,20 @@ class ProgramRepository {
       (_db.select(_db.workoutDays)..where((t) => t.id.equals(dayId)))
           .getSingleOrNull();
 
+  Future<List<WorkoutDay>> getCompletedDays() =>
+      (_db.select(_db.workoutDays)
+            ..where((t) => t.status.equals(WorkoutStatus.completed.name))
+            ..orderBy([(t) => OrderingTerm.desc(t.completedAt)]))
+          .get();
+
+  Future<Map<int, WorkoutWeek>> getWeeksMap(List<int> weekIds) async {
+    if (weekIds.isEmpty) return {};
+    final weeks = await (_db.select(_db.workoutWeeks)
+          ..where((t) => t.id.isIn(weekIds)))
+        .get();
+    return {for (final w in weeks) w.id: w};
+  }
+
   Future<int> saveDay(WorkoutDaysCompanion companion) =>
       _db.into(_db.workoutDays).insertOnConflictUpdate(companion);
 
@@ -83,6 +97,44 @@ class ProgramRepository {
   /// Completed days are never touched. Used by
   /// [WorkoutGeneratorService.regenerateFromWeek] before re-generating future
   /// prescriptions with updated TM values.
+  /// Scans program days and eliminates any duplicate uncompleted days that share
+  /// (workoutWeekId, dayIndex) with another completed day.
+  Future<void> deduplicateDaysForProgram(int programId) async {
+    final weeks = await getWeeksForProgram(programId);
+    for (final week in weeks) {
+      final days = await getDaysForWeek(week.id);
+      final byIndex = <int, List<WorkoutDay>>{};
+      for (final d in days) {
+        (byIndex[d.dayIndex] ??= []).add(d);
+      }
+      for (final entry in byIndex.entries) {
+        if (entry.value.length > 1) {
+          final completed = entry.value
+              .where((d) =>
+                  WorkoutStatus.fromString(d.status) == WorkoutStatus.completed)
+              .toList();
+
+          if (completed.isNotEmpty) {
+            final keepId = completed.first.id;
+            for (final d in entry.value) {
+              if (d.id != keepId) {
+                await (_db.delete(_db.workoutDays)
+                      ..where((t) => t.id.equals(d.id)))
+                    .go();
+              }
+            }
+          } else {
+            for (final d in entry.value.skip(1)) {
+              await (_db.delete(_db.workoutDays)
+                    ..where((t) => t.id.equals(d.id)))
+                  .go();
+            }
+          }
+        }
+      }
+    }
+  }
+
   Future<void> deleteFutureDaysForProgram(
     int programId,
     int fromWeek,

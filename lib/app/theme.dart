@@ -79,6 +79,7 @@ ThemeData _build(Brightness brightness) {
         height:        height,
         letterSpacing: spacing,
         color:         color ?? textPrimary,
+        fontFamilyFallback: const ['Roboto', 'sans-serif'],
       );
 
   final textTheme = baseText.copyWith(

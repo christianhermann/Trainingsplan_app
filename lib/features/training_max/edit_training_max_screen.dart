@@ -165,7 +165,7 @@ class _MaxFieldState extends State<_MaxField> {
             suffixText: 'kg',
           ),
           onChanged: (v) {
-            final parsed = double.tryParse(v);
+            final parsed = double.tryParse(v.replaceAll(',', '.'));
             if (parsed != null) widget.onChanged(parsed);
           },
         ),

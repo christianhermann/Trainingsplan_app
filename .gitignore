@@ -112,3 +112,6 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+'New stuff'
+/graphify-out

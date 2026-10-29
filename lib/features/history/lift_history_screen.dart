@@ -3,11 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/persistence/database.dart';
 import '../../data/repositories/lift_repository.dart';
-import '../../data/repositories/program_repository.dart';
 import '../../data/repositories/workout_repository.dart';
 import '../../domain/models/enums.dart';
 import '../../domain/services/progression_service.dart';
-import '../../data/seeders/progression_adjustment_seeder.dart';
+import 'lift_charts_view.dart';
 
 // ── Provider ───────────────────────────────────────────────────────────────────
 
@@ -27,40 +26,14 @@ class LiftHistoryEntry {
   final double?               delta;
 }
 
-final _adjustments =
-    ProgressionAdjustmentSeeder.generateProgressionAdjustments();
-
 final liftHistoryProvider =
     FutureProvider.family<List<LiftHistoryEntry>, int>((ref, liftId) async {
   final workoutRepo = ref.watch(workoutRepositoryProvider);
-  final programRepo = ref.watch(programRepositoryProvider);
-  final liftRepo    = ref.watch(liftRepositoryProvider);
-
+  
   final logs = await workoutRepo.getAllLogsForLift(liftId);
   if (logs.isEmpty) return [];
-
-  // Resolve the canonical lift name (e.g. 'squat') so we can check for
-  // lift-specific adjustment rules before falling back to 'all_lifts'.
-  final liftName = (await liftRepo.getAllLifts())
-      .where((l) => l.id == liftId)
-      .firstOrNull
-      ?.name;
-
-  // Build prescriptionId → WorkoutDay map so we can resolve completedAt.
-  final allPrograms = await programRepo.getAllPrograms();
-  final dayMap = <int, WorkoutDay>{}; // workoutDayId → day
-
-  for (final program in allPrograms) {
-    final weeks = await programRepo.getWeeksForProgram(program.id);
-    for (final week in weeks) {
-      final days = await programRepo.getDaysForWeek(week.id);
-      for (final day in days) {
-        dayMap[day.id] = day;
-      }
-    }
-  }
-
-  // Fetch all prescriptions for this lift to resolve prescriptionId → day.
+  
+  // Fetch all prescriptions for this lift in a single indexed query
   final allPrescriptions = await workoutRepo.getPrescriptionsForLift(liftId);
   final prescMap = {for (final p in allPrescriptions) p.id: p};
 
@@ -84,21 +57,7 @@ final liftHistoryProvider =
         repOutTarget:  presc.repOutTarget,
       );
 
-      // Lift-specific match first, then 'all_lifts' fallback
-      // (same logic as HistorySession.deltaFor).
-      final specific = _adjustments.where((a) =>
-          a.liftId == liftName &&
-          a.outcome == outcome &&
-          a.appliesToTrainingMax);
-      delta = specific.isNotEmpty
-          ? specific.first.delta
-          : _adjustments
-              .where((a) =>
-                  a.liftId == 'all_lifts' &&
-                  a.outcome == outcome &&
-                  a.appliesToTrainingMax)
-              .firstOrNull
-              ?.delta;
+      delta = outcome.defaultDelta;
     }
 
     entries.add(LiftHistoryEntry(
@@ -151,24 +110,41 @@ class LiftHistoryScreen extends ConsumerWidget {
         ) ??
         'Lift History';
 
-    return Scaffold(
-      appBar: AppBar(title: Text(resolvedName)),
-      body: entriesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error:   (e, _) => Center(child: Text('Error: $e')),
-        data:    (entries) {
-          if (entries.isEmpty) {
-            return const Center(
-              child: Text('No logged sessions for this lift yet.'),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(resolvedName),
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.list_alt_rounded), text: 'History List'),
+              Tab(icon: Icon(Icons.insights_rounded), text: 'Progression Charts'),
+            ],
+          ),
+        ),
+        body: entriesAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error:   (e, _) => Center(child: Text('Error: $e')),
+          data:    (entries) {
+            if (entries.isEmpty) {
+              return const Center(
+                child: Text('No logged sessions for this lift yet.'),
+              );
+            }
+            return TabBarView(
+              children: [
+                ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: entries.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, i) =>
+                      _LiftHistoryTile(entry: entries[i]),
+                ),
+                LiftChartsView(entries: entries),
+              ],
             );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: entries.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, i) => _LiftHistoryTile(entry: entries[i]),
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -393,3 +369,4 @@ class _Chip extends StatelessWidget {
     );
   }
 }
+
