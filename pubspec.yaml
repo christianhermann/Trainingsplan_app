@@ -25,6 +25,7 @@ dependencies:
 
   # UI
   google_fonts: ^8.1.0
+  cupertino_icons: ^1.0.8
 
   # Utilities
   url_launcher: ^6.2.0

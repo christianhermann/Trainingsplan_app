@@ -9,3 +9,6 @@
 # SQLite / Drift native libs
 -keep class org.sqlite.** { *; }
 -dontwarn org.sqlite.**
+
+# Play Core / Deferred Components
+-dontwarn com.google.android.play.core.**
